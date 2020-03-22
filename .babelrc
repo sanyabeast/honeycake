@@ -1,0 +1,8 @@
+
+{
+        "presets": [
+                "vue",
+                "@babel/typescript", 
+                ["@babel/env", { "modules": false }]
+        ]
+}
