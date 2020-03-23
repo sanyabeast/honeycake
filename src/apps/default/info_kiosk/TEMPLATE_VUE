@@ -1,0 +1,28 @@
+<template>
+        <div class="some_component">hello</div>
+</template>
+
+<script lang="js">
+
+import Vue from "vue"
+export default Vue.extend({
+        name: "some_component",
+        mixins: [],
+        components: {},
+        props: {},
+        data () {
+          return {
+
+          }
+        },
+        watch: {},
+        computed: {},
+        mounted () {},
+        destroyed () {}
+})
+</script>
+<style lang="less">
+  .some_component {
+    
+  }
+</style>
