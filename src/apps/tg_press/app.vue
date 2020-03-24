@@ -3,12 +3,19 @@
 </template>
 <script lang="js">
 
+
+
 console.log("bar")
 export default {
-        name: "App"
+        name: "App",
+        mounted () {
+                
+        }
 }
 
 </script>
 <style lang="less">
+        .app {
 
+}
 </style>

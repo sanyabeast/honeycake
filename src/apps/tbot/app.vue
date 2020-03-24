@@ -1,11 +1,16 @@
 <template>
-        <div class="app" v-html="$store.state.core.app_manifest.title"></div>
+        <div class="app">hello</div>
 </template>
 <script lang="js">
 
+
+
 console.log("bar")
 export default {
-        name: "App"
+        name: "App",
+        mounted () {
+                
+        }
 }
 
 </script>

@@ -6,20 +6,21 @@ import createPersistedState from "vuex-persistedstate"
 
 Vue.use(Vuex)
 
-let app_component = require(`./apps/${ process.env.APP_NAME }/app`).default
-let store = require(`./apps/${ process.env.APP_NAME }/store/index`).default
-
+let app_component = require(`apps/${ process.env.APP_NAME }/app`).default
+let core_store_config = require("./store/index").default
+let store = require(`apps/${ process.env.APP_NAME }/store/index`).default
 let app = new Vue({
-        components: { app_component },
-        template: "<div class='root'<app_component ref='app'/></div>",
-        el: "#app",
-        store: new Vuex.Store({
-                ...store,
-                plugins: [createPersistedState()]
-        })
+  components: { app_component },
+  template: "<div class='root'<app_component ref='app'/></div>",
+  el: "#app",
+  store: new Vuex.Store({
+    ...store,
+    ...core_store_config,
+    plugins: [createPersistedState()]
+  })
 })
 
 if ( !process.env.production ) {
-        (window).app = app;
-        (window).store = app.$store
+  (window).app = app;
+  (window).store = app.$store
 }

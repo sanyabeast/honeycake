@@ -30,6 +30,7 @@
     "babel-loader": "^8.1.0",
     "babel-preset-vue": "^2.0.2",
     "coffee-loader": "^0.9.0",
+    "copy-webpack-plugin": "^5.1.1",
     "css-loader": "^3.4.2",
     "deepmerge": "^4.2.2",
     "electron": "^8.1.1",
@@ -71,6 +72,8 @@
     "module-alias": "^2.2.2",
     "node-sass": "^4.13.1",
     "rmdir": "^1.2.0",
+    "telegraf": "^3.36.0",
+    "telegraf-inline-menu": "^4.0.0",
     "tree-iterate": "^1.1.1",
     "vue-class-component": "^7.2.3",
     "vue-property-decorator": "^8.4.1"

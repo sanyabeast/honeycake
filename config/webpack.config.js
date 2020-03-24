@@ -8,6 +8,7 @@ const webpack = require("webpack")
 /*plugins*/
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const VueLoaderPlugin = require('vue-loader/lib/plugin')
+const CopyPlugin = require('copy-webpack-plugin');
 /*subconfigs*/
 let html_plugin_config = require("./html_plugin.config")
 let module_config = require("./module.config")
@@ -20,13 +21,13 @@ console.log(`__dirname: ${ __dirname } `.yellow);
 
 module.exports = env => {
 	return {
-		devtool: env.production ? "#eval-source-map" : false,
+		devtool: !env.production ? "#eval-source-map" : false,
 		entry: './src/index.js',
 			mode: env.production === true ? "production" : "development",
 			devServer: devserver_config(),
 		output: {
 			filename: 'bundle.js',
-			path: path.resolve(CWD, `dist/${ (env.APP_NAME||"").replace(/\//gm, "_") }/${ env.production ? "prod" : "dev" }`),
+			path: path.resolve(CWD, `dist/${ (env.APP_NAME||"").replace(/\//gm, "__") }/${ env.production ? "prod" : "dev" }`),
 		},
 		plugins: [
 			new webpack.ProgressPlugin((percentage, message, ...args)=>{
@@ -36,12 +37,17 @@ module.exports = env => {
 			new webpack.ProvidePlugin(provide_config(env)),
 			new VueLoaderPlugin(),
 			new HtmlWebpackPlugin(html_plugin_config(env)),
+			new CopyPlugin([
+				{ from: 'res', to: 'res' }
+			]),
 		],
 		module: module_config(env),
 		resolve: {
 			extensions: ['.ts', '.js', '.vue', '.json'],
 			alias: {
-				"vue": 'vue/dist/vue.js'
+				"vue": 'vue/dist/vue.js',
+				"res": path.resolve(process.cwd(), "res"),
+				"apps": path.resolve(process.cwd(), "src/apps"),
 			}
 		},
 		performance: {

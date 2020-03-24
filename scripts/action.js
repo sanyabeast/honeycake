@@ -1,4 +1,5 @@
 
+
 const CWD = process.cwd()
 const child_process = require("child_process")
 const colors = require("colors")
@@ -11,6 +12,7 @@ const mkdirp = require('mkdirp')
 const copydir = require("copy-dir");
 const rmdir = require('rmdir');
 const forEach = require("lodash/forEach");
+const merge = require("lodash/merge");
 const keys = require("lodash/keys")
 const package_object = require(path.resolve(process.cwd(), "package.json"))
 var EventEmitter = require('events')
@@ -55,6 +57,10 @@ class ActionManager {
         
                 return result
         }
+
+        resolve_app_path ( app_name ) {
+                return path.normalize(path.join(CWD, `src/apps/${ app_name }`))
+        }
         
         run_action(args) {
                 let project_id = args.p
@@ -70,11 +76,11 @@ class ActionManager {
                 let force = args.force
         
                 if (name) {
-                        new_project_path = path.normalize(path.join(CWD, `src/apps/${ name }`));
+                        new_project_path = this.resolve_app_path(name)
                 }
         
                 if (project_id) {
-                        existing_project_path = path.normalize(path.join(CWD, `src/apps/${ project_id }`));
+                        existing_project_path = this.resolve_app_path(project_id)
                 }
         
                 console.log(`ACTION: `.yellow, `${action}`)
@@ -108,7 +114,7 @@ class ActionManager {
                                 if (!project_id){
                                         project_id = "default/hello"
                                         console.log("ACTION: ".yellow, "source project was not provided, fallback to 'default/hello'");
-                                        existing_project_path = path.normalize(path.join(CWD, `src/apps/${ project_id }`));
+                                        existing_project_path = this.resolve_app_path(project_id)
                                 }
         
                                 if (fs.existsSync(new_project_path)){
@@ -119,9 +125,12 @@ class ActionManager {
                                         mkdirp.sync(new_project_path);
                                         console.log("ACTION: ".yellow, `copying content from ${existing_project_path}
                                 
-        to
-        ${new_project_path}`);
-                                copydir(existing_project_path, new_project_path, {});
+to
+${new_project_path}`);
+                                        copydir.sync(existing_project_path, new_project_path, {});
+                                        this.push_app_manifest( name, {
+                                                title: this.capitalize(name)
+                                        } )
                                 }
                         break;
                         case "delete":
@@ -169,10 +178,37 @@ class ActionManager {
                 
                 
         }
+
+        push_app_manifest( app_name, data ) {
+                try {
+
+                        let app_manifest = this.read_app_manifest(app_name)
+                        app_manifest = merge(app_manifest, data)
+                        this.write_app_manifest( app_name, app_manifest )
+
+                } catch ( err ) { console.log("ACTION ERROR: ".yellow, err) }
+        }
+
+        read_app_manifest ( app_name ) {
+                try {
+                        return JSON.parse(fs.readFileSync(`${ this.resolve_app_path(app_name) }/manifest.json`, "utf-8"))
+                } catch ( err ) { console.log("ACTION ERROR: ".yellow, err) }
+        }
+
+        write_app_manifest ( app_name, app_manifest ) {
+                try {
+                        fs.writeFileSync(`${ this.resolve_app_path(app_name) }/manifest.json`, JSON.stringify(app_manifest, null, "\t"), "utf-8")
+                }  catch ( err ) { console.log("ACTION ERROR: ".yellow, err) }
+        }
+
+        capitalize ( input ) {
+                return input.replace(/_/gm, " ").replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); });
+        }
 }
 
 if (keys(args).length > 0 && args.a) {
         (new ActionManager()).run_action(args)
 }
+
 
 module.exports = ActionManager
