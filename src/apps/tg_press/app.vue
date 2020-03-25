@@ -3,13 +3,14 @@
 </template>
 <script lang="js">
 
+import  telegram_config from "secret/telegram.json"
+import TDClient from "tdweb"
 
-
-console.log("bar")
 export default {
         name: "App",
         mounted () {
-                
+                console.log(TDClient)
+                // let client = new TDClient.init({})
         }
 }
 

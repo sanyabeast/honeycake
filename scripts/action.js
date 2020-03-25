@@ -1,5 +1,3 @@
-
-
 const CWD = process.cwd()
 const child_process = require("child_process")
 const colors = require("colors")
@@ -15,7 +13,10 @@ const forEach = require("lodash/forEach");
 const merge = require("lodash/merge");
 const keys = require("lodash/keys")
 const package_object = require(path.resolve(process.cwd(), "package.json"))
-var EventEmitter = require('events')
+
+let json_cache = {
+
+}
 
 class ActionManager {
         match_any_regexp ( string, regexps ) {
@@ -74,75 +75,88 @@ class ActionManager {
                 let existing_project_path = null
                 let command = null
                 let force = args.force
+                let target = "web"
+                let app_manifest = null
+
+                
         
                 if (name) {
                         new_project_path = this.resolve_app_path(name)
                 }
         
                 if (project_id) {
-                        existing_project_path = this.resolve_app_path(project_id)
+                        existing_project_path = this.resolve_app_path(project_id);
+                        let app_manifest = this.read_app_manifest( project_id );
+
+                        if ( typeof app_manifest.target === "string" ) {
+                                target = process.env.WEBPACK_TARGET = app_manifest.target
+                        }
                 }
         
                 console.log(`ACTION: `.yellow, `${action}`)
         
+                process.env.CWD = process.cwd();
+                process.env.NODE_ENV = node_env
+                process.env.production = node_env === "production"
+                process.env.APP_NAME = project_id
+        
+                if (action !== "none" ) {
+                        switch ( action ) {
+                                case "build":
+                                        if ( fs.existsSync(existing_project_path) ) {
+                                                command = `webpack --config config/webpack.config.js  --env.NODE_ENV=${node_env} --env.${node_env} --env.APP_NAME=${ project_id } --env.WEBPACK_TARGET=${ target }`
+                                        } else {
+                                                console.log(`project "${ project_id } does not exist"`.yellow)
+                                        }
+                                break;
+                                case "start":
+                                        if ( fs.existsSync(existing_project_path) ) {
+                                                command = `webpack-dev-server --config config/webpack.config.js --env.NODE_ENV=${node_env} --env.${node_env} --env.APP_NAME=${ project_id }  --env.WEBPACK_TARGET=${ target }`
                 
-        
-                switch ( action ) {
-                        case "build":
-                                if ( fs.existsSync(existing_project_path) ) {
-                                        command = `webpack --config config/webpack.config.js  --env.NODE_ENV=${node_env} --env.${node_env} --env.APP_NAME=${ project_id }`
-        
-                                } else {
-                                        console.log(`project "${ project_id } does not exist"`.yellow)
-                                }
-                        break;
-                        case "start":
-                                if ( fs.existsSync(existing_project_path) ) {
-                                        command = `webpack-dev-server --config config/webpack.config.js --env.NODE_ENV=${node_env} --env.${node_env} --env.APP_NAME=${ project_id }`
-        
-                                } else {
-                                        console.log(`project "${ project_id } does not exist"`.yellow)
-                                }
-                        break;
-                        case "create":
-                                caption = "ACTION";
-                                color = "yellow";
-                                command = null ;             
-                                let is_protected = false;                          
-                                console.log(new_project_path, existing_project_path);
-        
-                                if (!project_id){
-                                        project_id = "default/hello"
-                                        console.log("ACTION: ".yellow, "source project was not provided, fallback to 'default/hello'");
-                                        existing_project_path = this.resolve_app_path(project_id)
-                                }
-        
-                                if (fs.existsSync(new_project_path)){
-                                        is_protected = this.remove_dir(new_project_path, force);
-                                }
-                                
-                                if (!is_protected || (is_protected && force)){
-                                        mkdirp.sync(new_project_path);
-                                        console.log("ACTION: ".yellow, `copying content from ${existing_project_path}
-                                
-to
-${new_project_path}`);
-                                        copydir.sync(existing_project_path, new_project_path, {});
-                                        this.push_app_manifest( name, {
-                                                title: this.capitalize(name)
-                                        } )
-                                }
-                        break;
-                        case "delete":
-                                caption = "ACTION"
-                                color = "yellow"
-                                command = null
-                                
-                                if (!this.remove_dir(existing_project_path, force)){
-                                        console.log("ACTION: ".yellow, `removed directory - ${existing_project_path}`)
-                                }
-                        break;
-                        default:
+                                        } else {
+                                                console.log(`project "${ project_id } does not exist"`.yellow)
+                                        }
+                                break;
+                                case "create":
+                                        caption = "ACTION";
+                                        color = "yellow";
+                                        command = null ;             
+                                        let is_protected = false;                          
+                                        console.log(new_project_path, existing_project_path);
+                
+                                        if (!project_id){
+                                                project_id = "default/hello"
+                                                console.log("ACTION: ".yellow, "source project was not provided, fallback to 'default/hello'");
+                                                existing_project_path = this.resolve_app_path(project_id)
+                                        }
+                
+                                        if (fs.existsSync(new_project_path)){
+                                                is_protected = this.remove_dir(new_project_path, force);
+                                        }
+                                        
+                                        if (!is_protected || (is_protected && force)){
+                                                mkdirp.sync(new_project_path);
+                                                console.log("ACTION: ".yellow, `copying content from ${existing_project_path}
+                                        
+        to
+        ${new_project_path}`);
+                                                copydir.sync(existing_project_path, new_project_path, {});
+                                                this.push_app_manifest( name, {
+                                                        title: this.capitalize(name)
+                                                } )
+                                        }
+                                break;
+                                case "delete":
+                                        caption = "ACTION"
+                                        color = "yellow"
+                                        command = null
+                                        
+                                        if (!this.remove_dir(existing_project_path, force)){
+                                                console.log("ACTION: ".yellow, `removed directory - ${existing_project_path}`)
+                                        }
+                                break;
+                                default:
+                        }
                 }
                         
                 if (command !== null) {
@@ -159,12 +173,18 @@ ${new_project_path}`);
                                 console.log("ACTION ERROR: ".yellow, err)
                         }
         
+                } else {
+                        console.log("ACTION: ".yellow, "skipping command...")
                 }
         
                 
                 if ( use_electron ) {
                         caption = "ELECTRON"
                         color = "blue"
+
+                        if ( fs.existsSync(path.join(CWD, `src/apps/${ project_id }/electron.js`)) ) {
+                                process.env.APP_ELECTRON_PRELOAD = path.join(CWD, `src/apps/${ project_id }/electron.js`)
+                        }
                         
                         console.log("ACTION: ".yellow, "using electron...")
         
@@ -204,11 +224,40 @@ ${new_project_path}`);
         capitalize ( input ) {
                 return input.replace(/_/gm, " ").replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); });
         }
+
+        
+
+        read_json ( rel_path ) {
+                let abs_path = path.join(CWD, `/${rel_path}`)
+
+                if ( json_cache[rel_path] !== undefined ) {
+                        return json_cache[rel_path]
+                }
+
+                let data = {}
+                if ( fs.existsSync(abs_path) ) {
+                        data = JSON.parse(fs.readFileSync(abs_path, "utf-8"))
+                } 
+
+                json_cache[rel_path] = data
+
+                return data
+        }
+
+        write_json ( rel_path, data ) {
+                let abs_path = path.join(CWD, `/${rel_path}`)
+                json_cache[rel_path] = data
+                fs.writeFileSync( abs_path, JSON.stringify(data), "utf-8" )
+                return data
+        }
+
 }
 
-if (keys(args).length > 0 && args.a) {
+if (keys(args).length > 0 && typeof args.a === "string") {
         (new ActionManager()).run_action(args)
 }
 
 
-module.exports = ActionManager
+module.exports = {
+        ActionManager
+}

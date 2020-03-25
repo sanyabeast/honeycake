@@ -1,0 +1,15 @@
+const CWD = process.cwd()
+const child_process = require("child_process")
+const colors = require("colors")
+const args = require("args-parser")(process.argv)
+const defaultTo = require("lodash/defaultTo")
+const fs = require("fs")
+const path = require("path")
+const webpack_config = require(path.resolve(process.cwd(), "./config/webpack.config.js"))(process.env)
+const mkdirp = require('mkdirp')
+const copydir = require("copy-dir");
+const rmdir = require('rmdir');
+const forEach = require("lodash/forEach");
+const merge = require("lodash/merge");
+const keys = require("lodash/keys")
+const package_object = require(path.resolve(process.cwd(), "package.json"))

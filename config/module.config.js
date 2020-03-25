@@ -5,9 +5,9 @@ module.exports = env=> {
 			{
         test: /\.less$/,
         use: [
-          {
-            loader: 'style-loader',
-          },
+					{
+						loader: "vue-style-loader"
+					},
           {
             loader: 'css-loader', 
           },
@@ -20,7 +20,8 @@ module.exports = env=> {
         test: /\.vue$/,
 				loader: 'vue-loader',
 				options: { 
-					hot: true
+					hot: true,
+					runtimeCompiler: true
 				}
 			},
 			{
@@ -59,8 +60,12 @@ module.exports = env=> {
 			{
 				test: /\.css$/,
 				use: [
-					'style-loader',
-					'css-loader',
+					{
+						loader: "vue-style-loader"
+					},
+					{
+						loader: 'css-loader'
+					},
 				],
 			},
 			{

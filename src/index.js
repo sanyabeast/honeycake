@@ -14,8 +14,8 @@ let app = new Vue({
   template: "<div class='root'<app_component ref='app'/></div>",
   el: "#app",
   store: new Vuex.Store({
-    ...store,
     ...core_store_config,
+    ...store,
     plugins: [createPersistedState()]
   })
 })

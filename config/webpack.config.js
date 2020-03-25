@@ -9,6 +9,7 @@ const webpack = require("webpack")
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const VueLoaderPlugin = require('vue-loader/lib/plugin')
 const CopyPlugin = require('copy-webpack-plugin');
+const node_externals = require('webpack-node-externals');
 /*subconfigs*/
 let html_plugin_config = require("./html_plugin.config")
 let module_config = require("./module.config")
@@ -16,11 +17,11 @@ let define_config = require("./define.config")
 let provide_config = require("./provide.config")
 let devserver_config = require("./devserver.config")
 
-console.log(`process.cwd: ${ process.cwd() } `.yellow);
-console.log(`__dirname: ${ __dirname } `.yellow);
 
 module.exports = env => {
 	return {
+		target: env.WEBPACK_TARGET,
+		
 		devtool: !env.production ? "#eval-source-map" : false,
 		entry: './src/index.js',
 			mode: env.production === true ? "production" : "development",
@@ -45,8 +46,10 @@ module.exports = env => {
 		resolve: {
 			extensions: ['.ts', '.js', '.vue', '.json'],
 			alias: {
-				"vue": 'vue/dist/vue.js',
+				'vue$': 'vue/dist/vue.esm.js',
+				'root': path.resolve(process.cwd()),
 				"res": path.resolve(process.cwd(), "res"),
+				"secret": path.resolve(process.cwd(), "secret"),
 				"apps": path.resolve(process.cwd(), "src/apps"),
 			}
 		},
