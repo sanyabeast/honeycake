@@ -73,6 +73,15 @@ ipc.on('response', (event, arg) => {
   })
 })
 
+ipc.on('message', (event, arg) => {
+  BrowserWindow.getAllWindows().forEach((browser_window)=>{
+    if ( arg.source_id !== browser_window.id ) {
+      browser_window.send("message", arg)
+      browser_window.send(`window_${ arg.source_id }.message`, arg)
+    }
+  })
+})
+
 
 // setInterval(()=>{
 //   BrowserWindow.getAllWindows().forEach((browser_window)=>{

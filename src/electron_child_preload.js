@@ -21,6 +21,12 @@ ipc.on("request", ( event, payload )=>{
   } )
 })
 
+ipc.on("message", ( event, payload )=>{
+  if ( payload.source_id === current_window.id ) return
+
+  console.log("MESSAGE", event, payload)
+})
+
 ipc.on("response", ( event, payload )=>{
   if ( payload.source_id === current_window.id ) return
 

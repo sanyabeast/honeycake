@@ -3,9 +3,6 @@ const Telegraf = window.Telegraf = require("telegraf")
 
 
 const ipc = window.ipc = require('electron').ipcRenderer;
-ipc.on('message', (event, message) => {
-    console.log(112, message); // logs out "Hello second window!"
-})
 
 const get = require("lodash/get")
 const set = require("lodash/set")
@@ -49,8 +46,6 @@ class ElectronWindowManager {
       temp.remove("core", "electron.child.extra_preload" )
     }
 
-    console.log(params)
-
     let browser_window = this.windows[id] = new remote.BrowserWindow( {
       width: 600,
       height: 600,
@@ -71,8 +66,11 @@ class ElectronWindowManager {
   }
 
   get_window_match_url ( url, use_regexp ) {
-    let browser_window = find(remote.BrowserWindow.getAllWindows(), (w)=> w.getURL() === url) || null
-    return browser_window
+    if (use_regexp){
+      return find(remote.BrowserWindow.getAllWindows(), (w)=> w.getURL().match(new RegExp(url, "gm"))) || null
+    } else {
+      return find(remote.BrowserWindow.getAllWindows(), (w)=> w.getURL() === url) || null
+    }
 
   } 
   

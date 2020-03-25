@@ -49,6 +49,7 @@ module.exports = env => {
 				'vue$': 'vue/dist/vue.esm.js',
 				'root': path.resolve(process.cwd()),
 				"res": path.resolve(process.cwd(), "res"),
+				"lib_app": path.resolve(process.cwd(), "src/apps/default/lib"),
 				"secret": path.resolve(process.cwd(), "secret"),
 				"apps": path.resolve(process.cwd(), "src/apps"),
 			}

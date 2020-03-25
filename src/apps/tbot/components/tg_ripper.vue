@@ -1,16 +1,24 @@
 <template>
         <div class="tg_ripper">
-
+          <div class="w-100 h-100 flex-column">
+            <div class="header">TG RIPPER</div>
+            <div class="tg_ripper_info w-100 h-100 flex-row">
+              <logger ref="logger" class="w-100 h-100"/>
+            </div>
+          </div>
+          
         </div>
 </template>
 
 <script lang="js">
 
 import Vue from "vue"
+import logger from "./logger"
+
 export default Vue.extend({
         name: "tg_ripper",
         mixins: [],
-        components: {},
+        components: { logger },
         props: {},
         data () {
           return {
@@ -24,7 +32,7 @@ export default Vue.extend({
         mounted () {
           window.tg_ripper = this
           
-          let browser_window = window.electron_window_manager.get_window_match_url("https://webogram.ru/#/im")
+          let browser_window = window.electron_window_manager.get_window_match_url("webogram", true)
 
           if (!browser_window) {
             browser_window = window.electron_window_manager.create_window({
@@ -38,16 +46,32 @@ export default Vue.extend({
           this.browser_window = browser_window
 
           ipc.on(`window_${ browser_window.id }.response`, this.on_webogram_response)
-          ipc.on(`window_${ browser_window.id }.request`, this.on_webogram_response)
+          ipc.on(`window_${ browser_window.id }.request`, this.on_webogram_request)
+          ipc.on(`window_${ browser_window.id }.message`, this.on_webogram_message)
         },
         destroyed () {},
         methods: {
+          log ( text_message, type ) {
+            this.$refs.logger.log(text_message, type)
+          },
           on_webogram_response ( event, data ) {
-            console.log(data)
+            // console.log(data)
           },
           on_webogram_request ( event, data ) {
-            console.log(data)
+            // console.log(data)
           },
+          on_webogram_message ( event, payload ) {
+            this.log(`message: ${payload.type}: ${payload.text||""}`, "message")
+
+            if ( payload.type === "update" ) this.on_ripper_update( event, payload )
+          },
+          on_ripper_update ( event, payload ) {
+            this.log(`update: ${payload.data.chat_caption} (${ payload.data.updates.length })`, "update");
+            this.$emit("updates", {
+              chat_caption: payload.data.chat_caption,
+              updates: payload.data.updates
+            })
+          }, 
           send_data ( event_type, data ) {
             if ( this.browser_window ) {
               this.browser_window.send( event_type, {
@@ -61,17 +85,29 @@ export default Vue.extend({
 </script>
 <style lang="less">
   .tg_ripper {
-    // position: absolute;
-    left: 0;
-    top: 0;
-    width: 1000px;
-      height: 1000px;
-      zoom: 0.5;
-    iframe {
-      border: 2px solid #353535;
+    border: 2px solid #353535;
+    padding: 16px;
+
+    overflow: hidden;
+
+    .logger {
+      .line {
+        &[data-type="message"] {
+          color: #ff6a9a;
+        }
+
+        &[data-type="update"] {
+          color: #6ae3ff;
+        }
+      }
+    }
+
+    .header {
       width: 100%;
-      height: 100%;
-      transform-origin: top left;
+      height: 32px;
+    }
+    .tg_ripper_info {
+      
     }
   }
 </style>
