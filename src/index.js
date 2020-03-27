@@ -3,8 +3,12 @@ let basic_styles = require("./style.less")
 import Vue from "vue"
 import Vuex from "vuex"
 import createPersistedState from "vuex-persistedstate"
+import generic_plugin from "./plugins/generic.plugin.js"
+
+console.log(Vuex, generic_plugin)
 
 Vue.use(Vuex)
+Vue.use(generic_plugin)
 
 let app_component = require(`apps/${ process.env.APP_NAME }/app`).default
 let core_store_config = require("./store/index").default

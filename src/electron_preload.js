@@ -1,5 +1,3 @@
-const Telegraf = window.Telegraf = require("telegraf")
-
 
 
 const ipc = window.ipc = require('electron').ipcRenderer;

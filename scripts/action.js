@@ -247,6 +247,7 @@ class ActionManager {
         write_json ( rel_path, data ) {
                 let abs_path = path.join(CWD, `/${rel_path}`)
                 json_cache[rel_path] = data
+                console.log(abs_path, data)
                 fs.writeFileSync( abs_path, JSON.stringify(data, null, "\t"), "utf-8" )
                 return data
         }

@@ -41,7 +41,7 @@ export default Vue.extend({
               text_content: text_message
             })
 
-            this.state.log = this.state.log.slice(Math.max(this.state.log.length - 20, 0), this.state.log.length)
+            this.state.log = this.state.log.slice(Math.max(this.state.log.length - 100, 0), this.state.log.length)
 
 
           },
@@ -63,6 +63,7 @@ export default Vue.extend({
       }
 
       .line {
+        border-bottom: 1px dotted #434343;
         &.red {
           color: #ff6a6a;
         }

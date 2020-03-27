@@ -1,13 +1,13 @@
 const path = require("path")
 const PromiseQueue = require(path.resolve(process.cwd(), "src/apps/default/lib/PromiseQueue.js"))
 const promise_queue = window.promise_queue = new PromiseQueue()
-const telegram_config = require(path.resolve(process.cwd(), "secret/telegram.json"))
+const tbot_config = require(path.resolve(process.cwd(), "secret/tbot.json"))
 const find = require("lodash/find")
 const get = require("lodash/get")
 const set = require("lodash/set")
 const transform = require("lodash/transform")
 const forEach = require("lodash/forEach");
-const ripper_config = telegram_config.ripper
+const ripper_config = tbot_config.ripper
 const request = window.request = require("request")
 const fs = require("fs")
 const randomstring = require("randomstring");
@@ -21,7 +21,7 @@ const { waitForTheElement } = require('wait-for-the-element');
 
 let channel_data = action_manager.read_json("temp/tbot/channel_data.json") || {}
 
-const BOTTING_SPEED_X = 10
+const BOTTING_SPEED_X = 1
 
 class TGRipperWorker {
   constructor () {
@@ -103,18 +103,22 @@ class TGRipperWorker {
 
     forEach(message_nodes, (node, key)=>{
       let date_node =  node.querySelector(".im_message_date_text")
+      let outer_node = node.querySelector(".im_message_outer_wrap")
       
-      if (date_node) {
+      if (outer_node && date_node) {
         let timecode = date_node.getAttribute("data-content")
-        
+        let message_id = outer_node.getAttribute("data-msg-id")
 
-        if ( get(channel_data, `${ this.current_channel_caption }.posts.${timecode}`) === undefined ) {
+        console.log(outer_node)
+        
+        if ( get(channel_data, `${ this.current_channel_caption }.posts.${message_id}`) === undefined ) {
           updates.push({
+            message_id,
             timecode,
             post_data: this.collect_post_data( node )
           })
 
-          set(channel_data, `${ this.current_channel_caption }.posts.${timecode}`, updates[updates.length - 1])
+          set(channel_data, `${ this.current_channel_caption }.posts.${message_id}`, updates[updates.length - 1])
         }
       }
     })

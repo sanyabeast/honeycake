@@ -14,7 +14,7 @@
     "delete": "node scripts/action.js a=delete",
     "electron-window": "node scripts/action.js a=none electron",
     "electron": "electron .",
-    "launcher": "npm run start:dev p=default/app_launcher electron"
+    "launcher": "node scripts/action.js a=start nenv=dev p=default/app_launcher electron"
   },
   "protected_projects": [
     "default/*"
@@ -25,16 +25,16 @@
   "devDependencies": {
     "@babel/core": "^7.9.0",
     "@babel/preset-env": "^7.9.0",
-    "@babel/preset-typescript": "^7.9.0",
-    "@types/node": "^13.9.3",
+    "@types/node": "^13.9.4",
     "@types/webpack-env": "^1.15.1",
     "babel-loader": "^8.1.0",
+    "babel-polyfill": "^6.26.0",
     "babel-preset-vue": "^2.0.2",
     "coffee-loader": "^0.9.0",
     "copy-webpack-plugin": "^5.1.1",
     "css-loader": "^3.4.2",
     "deepmerge": "^4.2.2",
-    "electron": "^8.1.1",
+    "electron": "^8.2.0",
     "file-loader": "^5.1.0",
     "html-webpack-plugin": "^3.2.0",
     "json-loader": "^0.5.7",
@@ -87,7 +87,8 @@
     "vue-class-component": "^7.2.3",
     "vue-property-decorator": "^8.4.1",
     "wait-for-the-element": "^2.2.0",
-    "webpack-node-externals": "^1.7.2"
+    "webpack-node-externals": "^1.7.2",
+    "emoji-json-list": "^1.0.0"
   },
   "modulePaths": [
     "<rootDir>/src",
