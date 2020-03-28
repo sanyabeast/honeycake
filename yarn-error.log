@@ -1,14 +1,14 @@
 Arguments: 
-  /home/marco/.nvm/versions/node/v13.11.0/bin/node /usr/share/yarn/bin/yarn.js install
+  /home/marco/.nvm/versions/node/v12.16.1/bin/node /usr/share/yarn/bin/yarn.js install
 
 PATH: 
-  /home/marco/.nvm/versions/node/v13.11.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+  /home/marco/.nvm/versions/node/v12.16.1/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
 
 Yarn version: 
   1.22.4
 
 Node version: 
-  13.11.0
+  12.16.1
 
 Platform: 
   linux x64

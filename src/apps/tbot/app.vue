@@ -33,8 +33,8 @@ export default {
         components: { repostbot, storebot, electron_app },
         data () {
                 return {
-                        run_repostbot: false,
-                        run_storebot: true,
+                        run_repostbot: true,
+                        run_storebot: false,
                 }
         },
         computed: {
