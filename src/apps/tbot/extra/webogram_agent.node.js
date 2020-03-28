@@ -201,11 +201,11 @@ class TGWorker {
     /*test*/
     emitter.on( "telegram.message.text", ( payload )=>{
 
-      log( `"telegram.message.text" (${ payload.from.username })` )
+      log( `"telegram.message.text" (${ payload.from.username || payload.from.title })` )
       
       send( "message", {
         type: "message.text",
-        text: `"telegram.message.text" (${ payload.from.username })`,
+        text: `"telegram.message.text" (${ payload.from.username || payload.from.title })`,
         data: payload
       } );
 
@@ -278,7 +278,7 @@ class TGWorker {
             caption: photo.caption
           } )
         }, function (e) {
-          reject( e )
+          resolve( e )
         }, function (progress) {
           log( "dlp progress", progress );
         })

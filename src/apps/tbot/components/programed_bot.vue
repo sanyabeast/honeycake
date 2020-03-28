@@ -1,17 +1,17 @@
 <template>
-        <div class="programed_bot bot flex-column">
-          <div class="header" v-html="`BOT (${scenario})`">BOT</div>
-          <div class="bot_info flex-row">
-            <logger 
-              ref="logger"
-            />
-          </div>
-        </div>
+<program_wrapper
+  title="Telegraf Bot"
+  class="telegraf_bot"
+>
+  <logger 
+    ref="logger"
+  />
+</program_wrapper>
 </template>
 
 <script lang="js">
 "use strict";
-import bot from "./bot"
+import bot from "./telegraf_bot"
 import Vue from "vue"
 import forEach from "lodash/forEach"
 import find from "lodash/find"
@@ -42,11 +42,12 @@ export default Vue.extend({
           forEach( emoji.list, ( data )=>{
             emoji_list[data[1]] = data[0];
           } )
-
-          let scenario_data = this.scenario_data = action_manager.read_json( this.scenario )
           let bot = this.bot
 
-          this.scenario_build_data = this.build_scenario( bot, scenario_data )
+          if (this.scenario  ) {
+            let scenario_data = this.scenario_data = action_manager.read_json( this.scenario )
+            this.scenario_build_data = this.build_scenario( bot, scenario_data )
+          }
           this.launch()
         },
         destroyed () {},

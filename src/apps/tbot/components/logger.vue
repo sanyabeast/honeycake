@@ -1,27 +1,36 @@
 <template>
-        <div class="logger">
-          
-          <div class="log flex-column-reverse">
-              <div
-                class="line"
-                v-for="(item, index) in state.log"
-                v-bind:data-type="item.type"
-                :key="index">
+  <program_wrapper
+    title="Logger"
+    class="logger"
 
-                <div class="text_content" v-html="item.text_content"/>
+  >
+    <list
+      :reverse="true"
+    >
+      <div
+        class="item"
+        v-for="(item, index) in state.log"
+        v-bind:data-type="item.type"
+        :key="index">
 
-              </div>
-            </div>
-        </div>
+        <div class="text_content" v-html="item.text_content"/>
+
+      </div>
+    </list>
+  </program_wrapper>
+       
 </template>
 
 <script lang="js">
+
+import program_wrapper from "apps/tbot/components/program_wrapper"
+import list from "apps/tbot/components/list"
 
 import Vue from "vue"
 export default Vue.extend({
         name: "logger",
         mixins: [],
-        components: {},
+        components: { program_wrapper, list },
         props: {},
         data () {
           return {
@@ -50,20 +59,10 @@ export default Vue.extend({
 </script>
 <style lang="less">
   .logger {
-    width: 100%;
-    height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
-    .log {
-        font-size: 12px;
-        font-weight: 300;
-        font-family: monospace;
-        width: 100%;
-        height: auto;
-      }
 
-      .line {
-        border-bottom: 1px dotted #434343;
+    .list {
+       
+      .item {
         &.red {
           color: #ff6a6a;
         }
@@ -89,4 +88,5 @@ export default Vue.extend({
         }
       }
   }
+}
 </style>

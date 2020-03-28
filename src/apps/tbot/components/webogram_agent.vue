@@ -1,35 +1,40 @@
 <template>
-        <div class="tg_ripper">
-          <div class="w-100 h-100 flex-column">
-            <div class="header">TG RIPPER</div>
-            <div class="tg_ripper_info w-100 h-100 flex-row">
-              <logger ref="logger" class="w-100 h-100"/>
-            </div>
-          </div>
-          <ElectronApp
-            ref="browser_window"
-            url="http://localhost:8000/app/index.html"
-            :width="800"
-            :height="600"
-            extra_preload="src/apps/tbot/extra/electron_tg_ripper.js"
-            @request="on_webogram_request"
-            @response="on_webogram_response"
-            @message="on_webogram_message"
-          />
-          
-        </div>
+  <program_wrapper
+    title="Webogram Agent"
+
+  >
+    <logger ref="logger"/>
+    <program_wrapper
+      title="Electron App"
+      class="electron_app"
+    >
+      <ElectronApp
+        ref="browser_window"
+        url="http://localhost:8000/app/index.html"
+        :width="800"
+        :height="600"
+        extra_preload="src/apps/tbot/extra/webogram_agent.node.js"
+        @request="on_webogram_request"
+        @response="on_webogram_response"
+        @message="on_webogram_message"
+      />
+    </program_wrapper>
+    
+  </program_wrapper>
+ 
 </template>
 
 <script lang="js">
 
+import program_wrapper from "apps/tbot/components/program_wrapper"
 import Vue from "vue"
 import logger from "./logger"
 import ElectronApp from "lib_app/components/electron_app"
 
 export default Vue.extend({
-        name: "tg_ripper",
+        name: "webogram_agent",
         mixins: [],
-        components: { logger, ElectronApp },
+        components: { program_wrapper, logger, ElectronApp },
         props: {},
         data () {
           return {
@@ -41,7 +46,7 @@ export default Vue.extend({
 
         },
         mounted () {
-          window.tg_ripper = this
+          window.webogram_agent = this
           
           
         },
@@ -80,16 +85,12 @@ export default Vue.extend({
 })
 </script>
 <style lang="less">
-  .tg_ripper {
-    border: 2px solid #353535;
-    padding: 16px;
-
-    overflow: hidden;
-
+  .webogram_agent {
+    
     .logger {
-      .line {
+      .item {
         &[data-type="message"] {
-          color: #00c3ff;
+          color: #1894ff;
         }
 
         &[data-type="message.text"] {
@@ -108,12 +109,6 @@ export default Vue.extend({
       }
     }
 
-    .header {
-      width: 100%;
-      height: 32px;
-    }
-    .tg_ripper_info {
-      
-    }
+
   }
 </style>

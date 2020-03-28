@@ -12,6 +12,9 @@ const rmdir = require('rmdir');
 const forEach = require("lodash/forEach");
 const merge = require("lodash/merge");
 const keys = require("lodash/keys")
+const get = require("lodash/get")
+const set = require("lodash/set")
+const unset = require("lodash/unset")
 const package_object = require(path.resolve(process.cwd(), "package.json"))
 
 let json_cache = {
@@ -225,8 +228,6 @@ class ActionManager {
                 return input.replace(/_/gm, " ").replace(/(?:^|\s)\S/g, function(a) { return a.toUpperCase(); });
         }
 
-        
-
         read_json ( rel_path ) {
                 let abs_path = path.join(CWD, `/${rel_path}`)
 
@@ -244,12 +245,30 @@ class ActionManager {
                 return data
         }
 
+        
+
         write_json ( rel_path, data ) {
                 let abs_path = path.join(CWD, `/${rel_path}`)
                 json_cache[rel_path] = data
                 console.log(abs_path, data)
                 fs.writeFileSync( abs_path, JSON.stringify(data, null, "\t"), "utf-8" )
                 return data
+        }
+
+        set_json ( rel_path, prop_path, value ) { 
+                let json = this.read_json( rel_path )
+                set( json, prop_path, value )
+                this.write_json( rel_path, json )
+        }
+
+        get_json ( rel_path, prop_path ) {
+                let json = this.read_json( rel_path )
+                return get( json, prop_path )
+        }
+
+        unset_json ( rel_path, prop_path ) {
+                let json = this.read_json( rel_path )
+                return unset( json, prop_path )
         }
 
 }

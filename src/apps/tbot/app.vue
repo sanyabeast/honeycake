@@ -7,7 +7,10 @@
                         :no_restore="true"
                         :user_default_preload="true"
                 /> -->
-                <postbot v-if="run_postbot"/>
+                <repostbot 
+                        v-if="run_repostbot"
+                        :bot_config="tbot_config.bots.repostman"
+                />
                 <storebot 
                         v-if="run_storebot"
                         :bot_config="tbot_config.bots.galaxy_market"
@@ -16,7 +19,7 @@
 </template>
 <script lang="js">
 
-import postbot from "apps/tbot/bots/postbot"
+import repostbot from "apps/tbot/bots/repostbot"
 import storebot from "apps/tbot/bots/storebot"
 import electron_app from "lib_app/components/electron_app"
 
@@ -27,11 +30,11 @@ import tbot_config from "secret/tbot.json"
 
 export default {
         name: "App",
-        components: { postbot, storebot, electron_app },
+        components: { repostbot, storebot, electron_app },
         data () {
                 return {
-                        run_postbot: true,
-                        run_storebot: false,
+                        run_repostbot: false,
+                        run_storebot: true,
                 }
         },
         computed: {
@@ -50,20 +53,21 @@ export default {
 </script>
 <style lang="less">
 
-        .app {
-                display: flex;
-                flex-direction: column;
-                position: absolute;
-                left: 0;
-                top: 0;
-                overflow: hidden;
-                padding: 8px;
-                
-                > .bot {
-                        border: 2px solid #6e6e6e;
-                        width: 700px;
-                        height: 700px;
-                        background-color: #121119;
+        body {
+                .app {
+                        display: flex;
+                        flex-direction: column;
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        overflow: hidden;
+                        padding: 8px;
+                        background: #ddd;
+                        
+                        > .repostbot_wrapper {
+                                width: 900px;
+                                height: 700px;
+                        }
                 }
         }
 </style>

@@ -1,162 +1,104 @@
 <template>
-        <div class="postbot bot flex-column">
-                <div class="postbot_section">
-                        <div class="header">POSTBOT</div>
-                        <logger ref="logger"/>
-                </div>
-                <div class="modules flex-row w-100">
-                        <tg_ripper
-                                ref="tg_ripper"
-                                @updates="on_ripper_update"
-                        />
-                        <bot
-                                ref="bot"
-                                @command="on_bot_command"
-                                :commands_prop="bot_commands"
-                                :BOT_API_TOKEN="tbot_config.bot.API_TOKEN"
-                        />
-                </div>
-        </div>
+<program_wrapper
+        title="Postbot"
+        class="postbot"
+>
+        <programed_bot
+                ref="telegraf_bot"
+                @command="on_bot_command"
+                :commands_prop="bot_commands"
+                :BOT_API_TOKEN="bot_config.bot_api_token"
+                :scenario="bot_config.scenario"
+        />
+</program_wrapper>
+
 </template>
 <script lang="js">
 
 import logger from "apps/tbot/components/logger"
-
-import tg_ripper from "apps/tbot/components/tg_ripper"
-import bot from "apps/tbot/components/bot"
+import program_wrapper from "apps/tbot/components/program_wrapper"
+import programed_bot from "apps/tbot/components/programed_bot"
 import PromiseQueue from "apps/default/lib/PromiseQueue.js"
 import forEach from "lodash/forEach"
-import tbot_config from "secret/tbot.json"
-
+import debounce from "lodash/debounce"
 
 export default {
-        name: "App",
-        components: { tg_ripper, bot, logger },
-        data () {
-                return {
-                        bot_commands: ["hi", "start", "echo"],
-                        post_interval: 2 * 60 * 1000,
-                        promise_queue: null
-                }
-        },
-        computed: {
-                tbot_config () {
-                        return this.$store.getters.tbot_config
-                }
-        },
-        mounted () {
-          this.promise_queue = new PromiseQueue()
-          window.postbot = this
-        },
-        methods: {
-                log ( text_message, type ) {
-                        this.$refs.logger.log(text_message, type)
-                },
-                on_bot_command ( payload ) {
-                        console.log(payload)
-                },
-                on_ripper_update ( payload ) {
-                        console.log(payload)
+  name: "App",
+  components: { programed_bot, logger, program_wrapper },
+  props: [ "bot_config", "schedule_file_path" ],
+  data () {
+    return {
+      bot_commands: ["hi", "start", "echo"],
+      promise_queue: null,
+      schedule: {
+        tasks: {},
+        timeouts: {}
+      }
+    }
+  },
+ 
+  mounted () {
+        console.log(this.bot_commands)
 
-                        forEach(payload.updates, ( data )=>{
-                                let media_group = []
-                                forEach(data.post_data.images, (image_data)=>{
-                                       media_group.push({
-                                               type: "photo",
-                                               url: image_data.file_name
-                                       })
-                                })
-                                
-                                if (media_group.length === 1) {
-                                        this.promise_queue.add((r)=>{
-                                                this.log(`task: image (${payload.chat_caption}, ${media_group[0].url})`, "task")
-                                                setTimeout(()=>{
-                                                        this.$refs.bot.send_image(tbot_config.press.channel_id, media_group[0].url)
-                                                        r()
-                                                }, this.post_interval)
-                                        });
-                                } else {
-                                        this.promise_queue.add((r)=>{
-                                                this.log(`task: mediagroup (${payload.chat_caption})`, "task")
-                                                
-                                                setTimeout(()=>{
-                                                        this.$refs.bot.send_media_group(tbot_config.press.channel_id, media_group)
-                                                        r()
-                                                }, this.post_interval)
-                                        })
-                                }
+        let saved_schedule = window.action_manager.get_json( `temp/tbot/${ this.schedule_file_path }`, "schedule" )
+        console.log( saved_schedule )
+        forEach( saved_schedule, ( task, date )=>{
+                this.add_task( Number(date), task );
+        } )
 
-                                
-                        })
-
+        this.save_file = debounce(()=>{
+                window.action_manager.set_json( `temp/tbot/${ this.schedule_file_path }`, `schedule`, this.schedule.tasks )
+        }, 2000)
+        this.promise_queue = new PromiseQueue()
+        window.postbot = this
+  },
+  methods: {
+          log ( text_message, type ) {
+                  this.$refs.logger.log(text_message, type)
+          },
+          on_bot_command () {console.log(arguments)},
+          run_task ( task_data, date ) {
+                  this.remove_task( date )
+                console.log(task_data) 
+          },
+          defer_task( date, task ) {
+                if ( date < (+new Date()) ) {
+                        return true
                 }
-        }
+
+                this.schedule.timeouts[date] = setTimeout(() => {
+                        this.run_task( task, date )
+                }, ( date - (+new Date()) ));
+
+                return false;
+          },
+          add_task ( date, task ) {
+                this.schedule.tasks[ date ] = task
+                let is_exceeded = this.defer_task( date, task )
+
+                if ( is_exceeded ){
+                        delete this.schedule.tasks[ date ]
+                }
+
+                this.save_file()
+          },
+          remove_task( date ) {
+                delete this.schedule.tasks[ date ]
+                this.save_file()
+          },
+          clear_schedule () {
+                  this.schedule.tasks = {}
+                  forEach( this.schedule.timeouts, ( timeout_id, date )=>{
+                          clearTimeout( timeout_id )
+                  } )
+          },
+          save_file () {
+                  
+          }
+  }
 }
 
 </script>
 <style lang="less">
-        .postbot {
-                display: flex;
-                flex-direction: column;
-                position: absolute;
-                left: 0;
-                top: 0;
-                overflow: hidden;
-                padding: 8px;
 
-                
-                
-                .postbot_section {
-                        display: flex;
-                        flex-direction: column;
-                        height: 50%;
-                        width: 100%;
-                        overflow: hidden;
-
-                        .header {
-                                width: 100%;
-                                height: 32px;
-                        }
-                        
-                        .programed_bot {
-                                height: calc(100% - 32px);
-                        }
-
-                        > .logger {
-                                height: 100%;
-                                width: 100%;
-                                border: 2px solid #353535;
-                                padding: 8px;
-                                margin: 8px 0;
-
-                                .line {
-                                        &[data-type="message"] {
-                                                color: #ff6a9a;
-                                        }
-
-                                        &[data-type="task"] {
-                                                color: #6ae3ff;
-                                        }
-                                }
-                        }
-                        
-                }
-
-                .modules {
-                        height: 50%;
-                        width: 100%;
-                        display: flex;
-                        flex-direction: row;
-
-                        > div {
-                                width: 50%;
-                                height: 100%;
-                                margin-right: 8px;
-
-                                &:last-child {
-                                        margin-right: 0;
-                                }
-                        }
-                }
-        }
 </style>
