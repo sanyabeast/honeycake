@@ -10,6 +10,8 @@ console.log(Vuex, generic_plugin)
 Vue.use(Vuex)
 Vue.use(generic_plugin)
 
+console.log(window.app_config)
+
 let app_component = require(`apps/${ process.env.APP_NAME }/app`).default
 let core_store_config = require("./store/index").default
 let store = require(`apps/${ process.env.APP_NAME }/store/index`).default

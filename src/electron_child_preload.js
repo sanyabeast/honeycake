@@ -1,7 +1,8 @@
 const path = require("path")
 const temp = window.temp = require(path.resolve(process.cwd(), "scripts/temp.js"))
 const { remote } = require("electron")
-let extra_preload = temp.get("core", "electron.child.extra_preload")
+let extra_preload = temp.get("core", `electron.child.extra_preload.${ remote.getCurrentWindow().id }`)
+let app_config = window.app_config = temp.get("core", `electron.child.app_config.${ remote.getCurrentWindow().id }`)
 
 const ipc = window.ipc = require('electron').ipcRenderer;
 const current_window = window.current_window = remote.getCurrentWindow()
@@ -41,6 +42,9 @@ ipc.on("response", ( event, payload )=>{
 })
 
 window.send = function( event_type, data ) {
+  console.log(`%cELECTRON CHILD WORKER: SEND, ${ event_type }`, "color: #ffbc00; font-weight: bold;", data)
+  console.log(`%c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`, "color: #ffbc00; font-weight: bold;")
+
   ipc.send( event_type, {
     source_id: current_window.id,
     ...data

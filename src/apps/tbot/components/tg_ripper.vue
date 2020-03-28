@@ -6,6 +6,16 @@
               <logger ref="logger" class="w-100 h-100"/>
             </div>
           </div>
+          <ElectronApp
+            ref="browser_window"
+            url="http://localhost:8000/app/index.html"
+            :width="800"
+            :height="600"
+            extra_preload="src/apps/tbot/extra/electron_tg_ripper.js"
+            @request="on_webogram_request"
+            @response="on_webogram_response"
+            @message="on_webogram_message"
+          />
           
         </div>
 </template>
@@ -14,11 +24,12 @@
 
 import Vue from "vue"
 import logger from "./logger"
+import ElectronApp from "lib_app/components/electron_app"
 
 export default Vue.extend({
         name: "tg_ripper",
         mixins: [],
-        components: { logger },
+        components: { logger, ElectronApp },
         props: {},
         data () {
           return {
@@ -32,38 +43,23 @@ export default Vue.extend({
         mounted () {
           window.tg_ripper = this
           
-          let browser_window = window.electron_window_manager.get_window_match_url("webogram", true)
-
-          if (!browser_window) {
-            browser_window = window.electron_window_manager.create_window({
-              id: "tg_ripper",
-              url: "https://webogram.ru/#/im",
-              width: 800,
-              extra_preload: "src/apps/tbot/extra/electron_tg_ripper.js"
-            })
-          }
-
-          this.browser_window = browser_window
-
-          ipc.on(`window_${ browser_window.id }.response`, this.on_webogram_response)
-          ipc.on(`window_${ browser_window.id }.request`, this.on_webogram_request)
-          ipc.on(`window_${ browser_window.id }.message`, this.on_webogram_message)
+          
         },
         destroyed () {},
         methods: {
           log ( text_message, type ) {
             this.$refs.logger.log(text_message, type)
           },
-          on_webogram_response ( event, data ) {
-            // console.log(data)
+          on_webogram_response ( { event, payload } ) {
+            // console.log(payload)
           },
-          on_webogram_request ( event, data ) {
-            // console.log(data)
+          on_webogram_request ( { event, payload } ) {
+            // console.log(payload)
           },
-          on_webogram_message ( event, payload ) {
-            this.log(`message: ${payload.type}: ${payload.text||""}`, "message")
-
-            if ( payload.type === "update" ) this.on_ripper_update( event, payload )
+          on_webogram_message ( { event, payload }) {
+            this.log(`message: ${payload.type}: ${payload.text||""}`, payload.type )
+            console.log(payload)
+            // if ( payload.type === "update" ) this.on_ripper_update( event, payload )
           },
           on_ripper_update ( event, payload ) {
             this.log(`update: ${payload.data.chat_caption} (${ payload.data.updates.length })`, "update");
@@ -93,12 +89,22 @@ export default Vue.extend({
     .logger {
       .line {
         &[data-type="message"] {
-          color: #ff6a9a;
+          color: #00c3ff;
         }
+
+        &[data-type="message.text"] {
+          color: #00fff5;
+        }
+
 
         &[data-type="update"] {
           color: #6ae3ff;
         }
+
+        &[data-type="session.start"] {
+          color: #569933;
+        }
+        
       }
     }
 

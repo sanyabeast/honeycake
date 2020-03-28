@@ -56,6 +56,33 @@ export default Vue.extend({
           bot.use(Telegraf.log())
           
           /*test*/
+
+          bot.on('inline_query', async ({ inlineQuery, answerInlineQuery }) => {
+            const apiUrl = `http://recipepuppy.com/api/?q=${inlineQuery.query}`
+            const response = await fetch(apiUrl)
+            const { results } = await response.json()
+            const recipes = results
+              .filter(({ thumbnail }) => thumbnail)
+              .map(({ title, href, thumbnail }) => ({
+                type: 'article',
+                id: thumbnail,
+                title: title,
+                description: title,
+                thumb_url: thumbnail,
+                input_message_content: {
+                  message_text: title
+                },
+                reply_markup: Markup.inlineKeyboard([
+                  Markup.urlButton('Go to recipe', href)
+                ])
+              }))
+            return answerInlineQuery(recipes)
+          })
+
+          bot.on('chosen_inline_result', ({ chosenInlineResult }) => {
+            console.log('chosen inline result', chosenInlineResult)
+          })
+
           bot.command('pyramid', (ctx) => {
             return ctx.reply('Keyboard wrap', Telegraf.Extra.markup(
               Telegraf.Markup.keyboard(['one', 'two', 'three', 'four', 'five', 'six'], {
@@ -85,8 +112,6 @@ export default Vue.extend({
               ]).extra()
             )
           })
-
-
 
           /*!test*/
           this.commands_prop.concat(this.extra_commands).forEach((item, index)=>{
@@ -275,16 +300,18 @@ export default Vue.extend({
           get_message_type ( telegraf_ctx ) {
             let message = telegraf_ctx.message
             let type = ""
-            let is_forwarded = isObject( telegraf_ctx.message.forward_from_chat )
-            let has_entities = isArray( telegraf_ctx.message.entities )
+            let is_forwarded = telegraf_ctx.message && isObject( telegraf_ctx.message.forward_from_chat )
+            let has_entities = telegraf_ctx.message &&    isArray( telegraf_ctx.message.entities )
             let is_mediagroup = false
 
-            if ( isString(message.media_group_id) ) is_mediagroup = true;
-            if ( isObject(message.sticker) ) type = "sticker";
-            if ( isString(message.text) ) type = "text";
-            if ( isArray(message.photo) ) type = "photo"
-            if ( isObject(message.video) ) type = "video"
-            if ( isObject(message.location) ) type = "location"
+            if ( telegraf_ctx.message ) {
+              if ( isString(message.media_group_id) ) is_mediagroup = true;
+              if ( isObject(message.sticker) ) type = "sticker";
+              if ( isString(message.text) ) type = "text";
+              if ( isArray(message.photo) ) type = "photo"
+              if ( isObject(message.video) ) type = "video"
+              if ( isObject(message.location) ) type = "location"
+            }
             
             return {
               type,
@@ -351,7 +378,11 @@ export default Vue.extend({
               let get_fullname = ()=>{ return this.get_full_contact_name( telegraf_ctx.from ) };
               let emoji = this.emoji_list;
               let msg = telegraf_ctx.message;
-              let msg_type = ( msg.sticker !== undefined ? "sticker" : "default");
+              let msg_type;
+
+              if (msg) {
+                msg_type = ( msg.sticker !== undefined ? "sticker" : "default");
+              }
               
               let userdata = function(){ 
                 if ( arguments.length > 0 ) {

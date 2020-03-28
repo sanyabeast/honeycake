@@ -5,6 +5,12 @@ const tbot_config = require(path.resolve(process.cwd(), "secret/tbot.json"))
 const find = require("lodash/find")
 const get = require("lodash/get")
 const set = require("lodash/set")
+const unset = require("lodash/unset")
+const isObject = require("lodash/isObject")
+const isArray = require("lodash/isArray")
+const isString = require("lodash/isString")
+const isNumber = require("lodash/isNumber")
+const isUndefined = require("lodash/isUndefined")
 const transform = require("lodash/transform")
 const forEach = require("lodash/forEach");
 const ripper_config = tbot_config.ripper
@@ -16,57 +22,496 @@ const MD5 = window.md5 = require("./md5.js")
 const mkdirp = require("mkdirp")
 
 const action_manager = new ActionManager()
-
 const { waitForTheElement } = require('wait-for-the-element');
-
 let channel_data = action_manager.read_json("temp/tbot/channel_data.json") || {}
 
 const BOTTING_SPEED_X = 1
+const TAG = "TG_RIPPER"
+const GROUPED_MESSAGE_AWAIT_TIMEOUT = 2000
+const MESSAGE_PROCESS_AWAIT_TIMEOUT = 8000
 
-class TGRipperWorker {
+/*events*/
+const { createNanoEvents } = require('nanoevents')
+const emitter = createNanoEvents()
+
+/*tgripper*/
+window.emit = function ( event_name, payload ) {
+  emitter.emit( `hook.${ event_name }`, payload )
+}
+
+window.log = function () {
+  let args = [ ...arguments ]
+  args.unshift( "color:#00ffdd" )
+  args.unshift( "%cTGWORKER:" )
+  console.log.apply( console, args )
+}
+
+class TGWorker {
+
   constructor () {
-    let element = waitForTheElement('.im_dialog ', {
-      timeout : 30000
-    }).then((e, a)=>{
-      this.init()
-    })
-  }
-
-  data = {
-    current_channel_index: 0,
-    current_action: 0,
-    actions: ["set_active_chat", "check_chat_updates", "increment_active_chat", "wait"]
-  };
-
-  get current_channel_caption () {
-    return ripper_config.tracking_channels[this.data.current_channel_index].caption
-  }
-
-  next_action () {
-    let current_action = this.data.current_action
-
-    this.data.current_action++
-
-    if ( this.data.current_action > this.data.actions.length - 1 ) {
-      this.data.current_action = 0
+    this.contacts = {
+      user_manager: {
+        $users: {},
+        users: {},
+        usernames: {},
+        user_access: {}
+      },
+      chat_manager: {
+        $chats: {},
+        chats: {},
+        usernames: {},
+        chat_access: {}
+      },
     }
 
-    switch(this.data.actions[current_action]) {
-      case "set_active_chat": this.set_active_chat();
-      break;
-      case "check_chat_updates": this.check_chat_updates();
-      break;
-      case "increment_active_chat": this.increment_active_chat();
-      break;
-      case "wait": this.wait();
-      break;
-    }
+    this.grouped_messages = {}
+    this.resolved_messages = {}
 
+    
+
+    this.file_manager = null;
+    this.mtp_file_manager = null;
+    
+    emitter.on( "hook.update.message", ( event )=>{
+      log(event);
+      switch ( event._ ) {
+        case "message":
+          if ( isUndefined( event.fromID ) ) {
+            if ( isNumber( event.retry_index ) && event.retry_index > 10 ) {
+              log( "message: retry count exceeded", event );
+              return
+            }
+
+            setTimeout( ()=>{
+              log("retry in 500ms");
+              event.retry_index = isNumber( event.retry_index ) ? ( event.retry_index + 1 ) : 0
+              emitter.emit( "hook.update.message", event ) 
+            }, 500 )
+            return;
+          }
+
+          this.process_message( event ).then( ( event )=>{
+            if ( event === null ) {
+              log( `event is null`, event )
+              return
+            }
+            emitter.emit( "telegram.message", {
+              type: "telegram.message",
+              ...event
+            })
+          } )
+
+          break;
+        case "updateShortMessage":
+
+            this.process_message( event ).then( ( event )=>{
+              if ( event === null ) {
+                log( `event is null`, event )
+                return
+              }
+              emitter.emit( "telegram.message", {
+                type: "telegram.message",
+                ...event
+              })
+            } )
+
+          break;
+        case "new_session_created":
+          emitter.emit( "telegram.session.start", {
+            type: "telegram.session.start",
+            first_msg_id: event.first_msg_id,
+            unique_id: event.unique_id,
+          } )
+
+          send( "message", {
+            type: "session.start",
+            text: `"telegram.session.start" (${ event.unique_id })`,
+            data: event
+          } );
+
+          break;
+        case "updateShort":
+          if ( event.update ) {
+            emitter.emit( "hook.update.message", {
+              type: "hook.update.message",
+              ...event.update,
+              date: event.date
+            } )
+          }
+          break;
+        case "updateUserTyping":
+          if ( event.action && event.action._ === "sendMessageTypingAction" ) {
+            emitter.emit( "telegram.typing.start", {
+              type: "telegram.typing.start",
+              from_id: event.user_id,
+              date: event.date,
+            } )
+          }
+        case "updates": 
+          if ( isArray( event.updates ) ) {
+            forEach( event.updates, ( update_data )=> {
+              emitter.emit( "hook.update.message", {
+                ...update_data,
+                data: event.data
+              } )
+            } )
+          }
+          
+          break;  
+        case "updateNewMessage":
+          if ( isObject( event.message ) ) emitter.emit( "hook.update.message", event.message )
+          break;
+        case "updateNewChannelMessage":
+          if ( isObject( event.message ) ) emitter.emit( "hook.update.message", event.message )
+          break;
+           
+      }
+    } )
+
+    emitter.on( "hook.user_manager.init", ( event )=>{
+      this.contacts.user_manager = {
+        $users: {},
+        users: event.users,
+        usernames: event.usernames,
+        user_access: event.user_access
+      }
+    
+    } )
+
+    emitter.on( "hook.chat_manager.init", ( event )=>{
+      this.contacts.chat_manager = {
+        $chats: {},
+        chats: event.chats,
+        usernames: event.usernames,
+        chat_access: event.user_access
+      }
+    } )
+
+    emitter.on( "hook.file_manager", ( event )=>{
+      log("file_manager", event)
+      this.file_manager = event
+    } )
+
+    emitter.on( "hook.mtp_file_manager", ( event )=>{
+      log("mtp_file_manager", event)
+      this.mtp_file_manager = event
+    } )
+
+
+    /*test*/
+    emitter.on( "telegram.message.text", ( payload )=>{
+
+      log( `"telegram.message.text" (${ payload.from.username })` )
+      
+      send( "message", {
+        type: "message.text",
+        text: `"telegram.message.text" (${ payload.from.username })`,
+        data: payload
+      } );
+
+    } )
+
+    /** */
+    emitter.on( "telegram.message", ( payload )=>{
+
+      log( `"telegram.message" (${ payload.from.username })` )
+
+      send( "message", {
+        type: "message",
+        text: `"telegram.message" (${ payload.from.username })`,
+        data: payload
+      } );
+    } )
+
+
+    emitter.on( "telegram.typing.start", ( payload )=> log( payload ) )
+    emitter.on( "telegram.session.start", ( payload )=> log( payload ) )
+
+    log("success")
     
   }
 
-  init() {
-    this.next_action()
+  get_photo_data ( photo ) {
+      var apiPromise
+      let size = null
+      
+
+      log( "get_photo_data" )
+
+      switch ( photo._ ) {
+        case "photo":
+          var inputLocation = {
+            _: 'inputFileLocation',
+            volume_id: photo.sizes[photo.sizes.length - 1].location.volume_id,
+            local_id: photo.sizes[photo.sizes.length - 1].location.local_id,
+            secret: photo.sizes[photo.sizes.length - 1].location.secret
+          }
+          apiPromise = this.mtp_file_manager.downloadFile(photo.sizes[photo.sizes.length - 1].location.dc_id, inputLocation, photo.size)
+          size = photo.sizes[photo.sizes.length - 1]
+        break;
+        case "photoSize":
+          var inputLocation = {
+            _: 'inputFileLocation',
+            volume_id: photo.location.volume_id,
+            local_id: photo.location.local_id,
+            secret: photo.location.secret
+          }
+          apiPromise = this.mtp_file_manager.downloadFile(photo.location.dc_id, inputLocation, photo.size)
+          size = photo
+        break;
+      }
+
+      return new Promise( ( resolve, reject )=>{
+        let reject_timeout_id = null
+
+        reject_timeout_id = setTimeout( ()=>{
+          resolve( null )
+        }, MESSAGE_PROCESS_AWAIT_TIMEOUT )
+        
+        apiPromise.then((blob)=>{
+          let url = this.file_manager.getUrl(blob, 'image/jpeg')
+          log("dlp then", url)
+          clearTimeout( reject_timeout_id )
+          resolve( {
+            url,
+            size: size,
+            caption: photo.caption
+          } )
+        }, function (e) {
+          reject( e )
+        }, function (progress) {
+          log( "dlp progress", progress );
+        })
+      } )
+  }
+
+  process_message ( data ) {
+
+    return new Promise ( ( resolve, reject )=>{
+
+
+      let from_id =  isNumber( data.fromID ) ? data.fromID : data.user_id
+      let is_grouped = isString( data.grouped_id )
+
+      let unique_id = `${ from_id }/${ data.id }`
+      if ( this.resolved_messages[ unique_id ] && !is_grouped ){
+        resolve( null )
+      }
+
+      if ( !is_grouped ) {
+        this.resolved_messages[ unique_id ] = true
+      }
+
+      console.log( "process_message", data )
+  
+      
+      let result = {
+        message: {
+          text: data.message,
+          type: "text"
+        },
+        from: this.get_user( from_id )
+      }
+
+      if ( is_grouped ) {
+        let grouped_id = data.grouped_id
+        let group_data = get( this.grouped_messages, `g${ grouped_id }` )
+        if ( !group_data ) {
+          group_data = {
+            id: grouped_id,
+            fromID: data.fromID,
+            user_id: data.user_id,
+            from_id: data.from_id,
+            messages: []
+          }
+
+          set( this.grouped_messages, `g${ grouped_id }`, group_data )
+        }
+
+        group_data.messages.push( data )
+        if ( isNumber( group_data.timer_id ) ) clearTimeout( group_data.timer_id )
+        group_data.timer_id = setTimeout( ()=>{
+          unset( this.grouped_messages, `g${ grouped_id }` )
+          this.process_grouped_messages( group_data ).then( data => resolve( data ) )
+        }, GROUPED_MESSAGE_AWAIT_TIMEOUT ) 
+
+        return
+
+      }
+
+      if ( data.media ) {
+        this.process_media( data.media ).then(( media_data )=>{
+          if ( media_data === null ) {
+            log("media was not resolved", data.media) 
+            resolve( null )
+          } else {
+            result.message.media = media_data;
+            result.message.type = media_data.type
+            resolve ( result )
+          }
+          
+        })
+      } else {
+        resolve( result )
+      }
+
+    } )
+
+  
+  }
+
+  process_grouped_messages ( grouped_data ) {
+    return new Promise( ( resolve, reject )=>{
+      let count = grouped_data.messages.length
+      let current = 0
+      let mediagroup = []
+      let from_id =  isNumber( grouped_data.fromID ) ? grouped_data.fromID : grouped_data.user_id
+      
+      log( "processing message group", grouped_data )
+      
+      forEach( grouped_data.messages, ( message_data )=>{
+        log("start processing submessage", message_data)
+        this.process_message({
+          ...message_data,
+          grouped_id: undefined
+        }).then( ( data )=>{
+          current++
+          
+          if ( data === null ) {
+            log("submessage was not resolved")
+          } else {
+            log( "submessage", data )
+          
+            if ( data.message.media ) {
+              mediagroup.push( data.message.media )
+            }
+          }
+          
+          if ( current === count ) {
+            let merge = {
+              message: {
+                text: message_data.message,
+                mediagroup,
+                type: "group"
+              },
+              from: this.get_user( from_id )
+            }
+
+            log( "merged message", merge )
+            resolve( merge )
+
+          }
+        })
+      } )
+
+    } )
+  }
+
+  process_media ( data ) {
+    return new Promise ( ( resolve, reject )=>{
+      let retval = {}
+      let media_type = null
+      
+      switch ( data._ ) {
+        case "messageMediaPhoto":
+          media_type = "photo"
+          this.get_photo_data( data.photo ).then( ( photo_data )=>{
+            console.log(photo_data)
+            if ( photo_data === null ) {
+              resolve( null )
+            } else {
+              resolve( {
+                type: media_type,
+                data: {
+                  url: photo_data.url,
+                  width: photo_data.size.h,
+                  height: photo_data.size.w,
+                  size: photo_data.size.size,
+                  caption: data.caption
+                }
+              } )
+            }            
+          } )
+        
+        break;
+        case "document":
+          if ( data.sticker === true ) {
+            media_type = "sticker"
+            this.get_photo_data( data.thumb ).then( ( data )=>{
+              console.log(data)
+              // resolve( {
+              //   type: media_type,
+              //   data: {
+              //     url: data.url,
+              //     width: data.size.h,
+              //     height: data.size.w,
+              //     size: data.size.size
+              //   }
+              // } )
+            } )
+          } else {
+            media_type = "document"
+            resolve( {
+              type: media_type,
+              data: {
+                access_hash: data.access_hash,
+                mime: data.mime_type,
+                size: data.size,
+                type: data.type,
+                file_name: data.file_name
+              }
+            } )
+          }
+
+        break;
+        case "messageMediaDocument":
+          console.log(444, data.document)
+          this.process_media( data.document ).then( d => resolve( d )  )
+        break;
+      }
+      log("process media", data)
+    } )
+  }
+
+  get_user ( id ) {
+    if ( isString(id) ) id = (this.contacts.user_manager.users[ this.user_manager.usernames[ id ] ]) || (this.contacts.chat_manager.chats[ this.chat_manager.usernames[ id ] ]) || null
+
+    let is_human = id > 0
+
+    console.log( is_human )
+
+    if ( is_human ){
+      if ( this.contacts.user_manager.$users[ id ] ) return this.contacts.user_manager.$users[ id ]
+      this.contacts.user_manager.$users[ id ] = this.create_contact( this.contacts.user_manager.users[ id ] )
+      return this.contacts.user_manager.$users[ id ]
+    } else {
+      id = -id;
+      if ( this.contacts.chat_manager.$chats[ id ] ) return this.contacts.chat_manager.$chats[ id ]
+      this.contacts.chat_manager.$chats[ id ] = this.create_contact( this.contacts.chat_manager.chats[ id ] )
+      return this.contacts.chat_manager.$chats[ id ]
+    }
+  
+  }
+
+  transform_map ( map, t_func ) {
+    let result = {}
+    return result
+  }
+
+  create_contact ( data, id ) {
+    if ( data._.match(/chat|chatForbidden/) ) return null
+
+    return {
+      first_name: data.first_name,
+      username: data.username,
+      title: data.title,
+      broadcast: data.broadcast,
+      participants_count: data.participants_count,
+      id: data.id,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      access_hash: data.access_hash
+    }
   }
 
   write_blob_to_file ( blob_url, save_path, extension ) {
@@ -76,7 +521,7 @@ class TGRipperWorker {
     });
 
     let file_name = `${md5(blob_url)}${extension}`;
-    save_path = `${save_path}/${extension.replace(".", "")}`
+    save_path = `${save_path}`
 
     if (!fs.existsSync(path.join(process.cwd(), `${save_path}/${file_name}`))){
       fetch(blob_url).then((r)=> {
@@ -92,145 +537,8 @@ class TGRipperWorker {
     }
 
     return `${save_path}/${file_name}`
-  }
 
-  check_chat_updates () {
-    send("message", { type: `info`, text: "check_chat_updates" })
-
-    let message_nodes = document.querySelectorAll(".im_history_message_wrap")
-    let updates = []
-
-
-    forEach(message_nodes, (node, key)=>{
-      let date_node =  node.querySelector(".im_message_date_text")
-      let outer_node = node.querySelector(".im_message_outer_wrap")
-      
-      if (outer_node && date_node) {
-        let timecode = date_node.getAttribute("data-content")
-        let message_id = outer_node.getAttribute("data-msg-id")
-
-        console.log(outer_node)
-        
-        if ( get(channel_data, `${ this.current_channel_caption }.posts.${message_id}`) === undefined ) {
-          updates.push({
-            message_id,
-            timecode,
-            post_data: this.collect_post_data( node )
-          })
-
-          set(channel_data, `${ this.current_channel_caption }.posts.${message_id}`, updates[updates.length - 1])
-        }
-      }
-    })
-
-
-    if (updates.length > 0) {
-      send("message", {
-        type: "update",
-        data: {
-          chat_caption: this.current_channel_caption,
-          updates
-        }
-      })
-
-      action_manager.write_json("temp/tbot/channel_data.json", channel_data)
-    }
-
-
-    promise_queue.add((r)=>{
-      setTimeout(()=>{
-        r()
-        this.next_action();
-      }, 1000 * BOTTING_SPEED_X)
-    })
-  }
-
-  collect_post_data ( post_node ) {
-    let image_nodes = post_node.querySelectorAll(".im_message_photo_thumb img")
-    let image_data = []
-
-    forEach(image_nodes, (image_node, index)=>{
-      if ( image_node.src ) {
-        let file_name = this.write_blob_to_file(image_node.src, "temp/tbot", ".jpg")
-        image_data.push({
-          src: image_node.src,
-          file_name: file_name
-        })
-        
-      }
-    })
-
-    return {
-      images: image_data
-    }
-  }
-
-  wait () {
-    promise_queue.add((r)=>{
-      setTimeout(()=>{
-        r();
-        this.next_action()
-      }, 2000 * BOTTING_SPEED_X)
-    })
-  }
-
-  increment_active_chat () {
-    send("message", { type: `info`, text: `iterate_activee_chat (${this.data.current_channel_index})` })
-
-    this.data.current_channel_index++
-    if ( this.data.current_channel_index >= ripper_config.tracking_channels.length ) this.data.current_channel_index = 0
-
-    this.next_action()
-  }
-
-  set_active_chat () {
-    send("message", { type: `info`, text: `set_active_chat (${this.data.current_channel_index})` })
-
-    promise_queue.add((r)=>{
-      let channel_cap = ripper_config.tracking_channels[this.data.current_channel_index].caption
-      let button = this.find_contact_button({
-        caption: channel_cap
-      })
-      button.click()
-
-      setTimeout(()=>{
-        r()
-        this.next_action()
-      }, 2000 * BOTTING_SPEED_X)
-    })
-  }
-
- 
-
-  find_contact_button ( params ) {
-    let buttons = window.document.querySelectorAll(".im_dialog  ")
-    let result = find(buttons, ( button_node )=> {
-      let caption = button_node.querySelector(".im_dialog_peer span").innerHTML.trim()
-      return caption === params.caption
-
-    })
-  
-    return {
-      dom: result,
-      click: ()=>{
-        return this.fire_event(result, "mousedown")
-      }
-    }
-  }
-
-  fire_event(el, etype){
-    send("message", {
-      type: `element.${ etype }`
-    })
-
-    if (el.fireEvent) {
-      el.fireEvent('on' + etype);
-    } else {
-      var evObj = document.createEvent('Events');
-      evObj.initEvent(etype, true, false);
-      el.dispatchEvent(evObj);
-    }
   }
 }
 
-window.tg_ripper_worker = new TGRipperWorker()
+window.tgworker = new TGWorker()

@@ -38,25 +38,44 @@ class ElectronWindowManager {
       charset: 'alphabetic'
     });
 
-    if ( params.extra_preload ) {
-      temp.set("core", "electron.child.extra_preload", params.extra_preload )
-    } else {
-      temp.remove("core", "electron.child.extra_preload" )
+   
+    let preload_script = path.join(process.env.CWD, `/src/electron_child_preload.js`);
+
+    console.log(params)
+
+    if ( params.use_default_preload ) {
+      preload_script  =  path.join(process.env.CWD, `/src/electron_preload.js`);
     }
+
+    console.log(preload_script)
 
     let browser_window = this.windows[id] = new remote.BrowserWindow( {
       width: 600,
       height: 600,
+      
       nodeIntegration: true,
       nodeIntegrationInWorker : true,
       nodeIntegrationInSubFrames: true,
       experimentalFeatures: true,
       webPreferences: {
-        preload: path.join(process.env.CWD, `/src/electron_child_preload.js`),
+        preload: preload_script,
         webSecurity: false,
       },
       ...params
     } )
+
+    if ( params.extra_preload ) {
+      temp.set("core", `electron.child.extra_preload.${browser_window.id}`, params.extra_preload )
+    } else {
+      temp.remove(`core`, `electron.child.extra_preload.${browser_window.id}` )
+    }
+
+    if ( params.app_config ) {
+      temp.set("core", `electron.child.app_config.${browser_window.id}`, params.app_config )
+    } else {
+      temp.remove(`core`, `electron.child.app_config.${browser_window.id}` )
+    }
+
     
     browser_window.loadURL(`${params.url}`)
 

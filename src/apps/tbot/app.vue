@@ -1,8 +1,13 @@
 <template>
         <div class="app flex-column">
-                <postbot 
-                        v-if="run_postbot"
-                />
+                <!-- <electron_app
+                        ref="browser_window"
+                        url="http://localhost:9000"
+                        :width="800"
+                        :no_restore="true"
+                        :user_default_preload="true"
+                /> -->
+                <postbot v-if="run_postbot"/>
                 <storebot 
                         v-if="run_storebot"
                         :bot_config="tbot_config.bots.galaxy_market"
@@ -13,17 +18,20 @@
 
 import postbot from "apps/tbot/bots/postbot"
 import storebot from "apps/tbot/bots/storebot"
+import electron_app from "lib_app/components/electron_app"
+
+console.log(55,electron_app)
 
 import tbot_config from "secret/tbot.json"
 
 
 export default {
         name: "App",
-        components: { postbot, storebot },
+        components: { postbot, storebot, electron_app },
         data () {
                 return {
-                        run_postbot: false,
-                        run_storebot: true,
+                        run_postbot: true,
+                        run_storebot: false,
                 }
         },
         computed: {
@@ -53,8 +61,8 @@ export default {
                 
                 > .bot {
                         border: 2px solid #6e6e6e;
-                        width: 500px;
-                        height: 500px;
+                        width: 700px;
+                        height: 700px;
                         background-color: #121119;
                 }
         }

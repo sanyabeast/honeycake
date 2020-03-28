@@ -1,6 +1,6 @@
 <template>
         <div class="programed_bot bot flex-column">
-          <div class="header" v-html="`BOT (${this.scenario})`">BOT</div>
+          <div class="header" v-html="`BOT (${scenario})`">BOT</div>
           <div class="bot_info flex-row">
             <logger 
               ref="logger"
@@ -36,6 +36,7 @@ export default Vue.extend({
         watch: {},
         computed: {},
         mounted () {
+          window.programed_bot = this
           let emoji_list = this.emoji_list = {}
 
           forEach( emoji.list, ( data )=>{

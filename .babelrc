@@ -3,5 +3,8 @@
         "presets": [
                 "vue",
                 ["@babel/env", { "modules": false }]
+        ],
+        "plugins": [
+                "@babel/plugin-transform-async-to-generator"
         ]
 }

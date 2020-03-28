@@ -35,7 +35,7 @@ export default {
         data () {
                 return {
                         bot_commands: ["hi", "start", "echo"],
-                        post_interval: 15 * 60 * 1000,
+                        post_interval: 2 * 60 * 1000,
                         promise_queue: null
                 }
         },

@@ -23,7 +23,7 @@ module.exports = env => {
 		target: env.WEBPACK_TARGET,
 		
 		devtool: !env.production ? "#eval-source-map" : false,
-		entry: './src/index.js',
+		entry: [ "@babel/polyfill", "./src/index.js" ],
 			mode: env.production === true ? "production" : "development",
 			devServer: devserver_config(),
 		output: {
