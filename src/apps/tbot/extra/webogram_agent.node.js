@@ -27,8 +27,9 @@ let channel_data = action_manager.read_json("temp/tbot/channel_data.json") || {}
 
 const BOTTING_SPEED_X = 1
 const TAG = "TG_RIPPER"
-const GROUPED_MESSAGE_AWAIT_TIMEOUT = 5000
-const MESSAGE_PROCESS_AWAIT_TIMEOUT = 20000
+const GROUPED_MESSAGE_AWAIT_TIMEOUT = 2000
+const MESSAGE_PROCESS_AWAIT_TIMEOUT = 8000
+const PHOTO_SIZE_RESOLVE_TIMEOUT = 2000
 
 /*events*/
 const { createNanoEvents } = require('nanoevents')
@@ -41,7 +42,7 @@ window.emit = function ( event_name, payload ) {
 
 window.log = function () {
   let args = [ ...arguments ]
-  args.unshift( "color:#00ffdd" )
+  args.unshift( "color:#dc4646" )
   args.unshift( "%cTGWORKER:" )
   console.log.apply( console, args )
 }
@@ -73,7 +74,7 @@ class TGWorker {
     this.mtp_file_manager = null;
     
     emitter.on( "hook.update.message", ( event )=>{
-      log(event);
+      // log(event);
       switch ( event._ ) {
         case "message":
           if ( isUndefined( event.fromID ) ) {
@@ -228,58 +229,70 @@ class TGWorker {
     
   }
 
+  resolve_blob_url ( blob, type ) {
+    let url = this.file_manager.getUrl(blob, type )
+    log("resolve blob url", url)
+    return url
+  }
+
   get_photo_data ( photo ) {
-      var apiPromise
-      let size = null
-      
+     
 
       log( "get_photo_data" )
 
-      switch ( photo._ ) {
-        case "photo":
-          var inputLocation = {
-            _: 'inputFileLocation',
-            volume_id: photo.sizes[photo.sizes.length - 1].location.volume_id,
-            local_id: photo.sizes[photo.sizes.length - 1].location.local_id,
-            secret: photo.sizes[photo.sizes.length - 1].location.secret
-          }
-          apiPromise = this.mtp_file_manager.downloadFile(photo.sizes[photo.sizes.length - 1].location.dc_id, inputLocation, photo.size)
-          size = photo.sizes[photo.sizes.length - 1]
-        break;
-        case "photoSize":
-          var inputLocation = {
-            _: 'inputFileLocation',
-            volume_id: photo.location.volume_id,
-            local_id: photo.location.local_id,
-            secret: photo.location.secret
-          }
-          apiPromise = this.mtp_file_manager.downloadFile(photo.location.dc_id, inputLocation, photo.size)
-          size = photo
-        break;
-      }
+      return new Promise ( ( resolve, reject )=>{
+        let size_obj = null
+        let caption = undefined
+        let lower_index_timeout = null
 
-      return new Promise( ( resolve, reject )=>{
-        let reject_timeout_id = null
+        switch( photo._ ) {
+          case "photo":
+            let size_index = null
+            caption = photo.caption
 
-        reject_timeout_id = setTimeout( ()=>{
-          resolve( null )
-        }, MESSAGE_PROCESS_AWAIT_TIMEOUT )
-        
-        apiPromise.then((blob)=>{
-          let url = this.file_manager.getUrl(blob, 'image/jpeg')
-          log("dlp then", url)
-          clearTimeout( reject_timeout_id )
+            if ( isNumber( photo.$size_index ) ) {
+              log( `trying to get photo size - ${ photo.$size_index }` )
+              size_index = photo.$size_index
+            } else {
+              size_index = photo.sizes.length - 1
+              photo.$size_index = size_index
+            }
+
+            size_obj = photo.sizes[ size_index ]
+
+            lower_index_timeout = setTimeout( ()=>{
+              log( `lowering photo size index (${ photo.$size_index })` )
+              if ( photo.$size_index === 0 ) {
+                log( "photo was not resolved", photo )
+                resolve( null )
+                return;
+              }
+
+              photo.$size_index--
+              this.get_photo_data( photo ).then( data => resolve( data ) )
+              
+            }, PHOTO_SIZE_RESOLVE_TIMEOUT )
+
+            break;
+            case "photoSize":
+              size_obj = photo
+              log("resolving photo from photoSize object", photoSize)
+            break;
+        }
+
+        this.mtp_file_manager.getDownloadedFile(size_obj.location, size_obj).then( ( blob )=>{
+          if ( lower_index_timeout !== null )clearTimeout( lower_index_timeout )
+          let blob_url = this.resolve_blob_url( blob, "image/jpeg" )
+
           resolve( {
-            url,
-            size: size,
-            caption: photo.caption
-          } )
-        }, function (e) {
-          resolve( e )
-        }, function (progress) {
-          log( "dlp progress", progress );
-        })
-      } )
+            url: blob_url,
+            size: size_obj,
+            caption: caption
+          })
+        } )
+
+      } ) 
+
   }
 
   process_message ( data ) {
@@ -299,7 +312,7 @@ class TGWorker {
         this.resolved_messages[ unique_id ] = true
       }
 
-      console.log( "process_message", data )
+      // console.log( "process_message", data )
   
       
       let result = {
@@ -413,7 +426,7 @@ class TGWorker {
         case "messageMediaPhoto":
           media_type = "photo"
           this.get_photo_data( data.photo ).then( ( photo_data )=>{
-            console.log(photo_data)
+            // console.log(photo_data)
             if ( photo_data === null ) {
               resolve( null )
             } else {

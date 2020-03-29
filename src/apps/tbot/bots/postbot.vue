@@ -81,10 +81,10 @@ export default {
             let target_chats = task_data.targets
             let telegraf_bot = this.$refs.telegraf_bot
 
-            this.log(`posting ${ task_data.type }...`, "posting")
+            this.log(`posting to ${ target_chats.join(", ") }...)`, "posting")
 
             if ( task_data.mediagroup ) {
-              forEach( target_chats, ( chat_id )=> telegraf_bot.send_mediagroup( task_data.mediagroup ) );
+              forEach( target_chats, ( chat_id )=> telegraf_bot.send_mediagroup( chat_id, task_data.mediagroup ) );
               return;
             }
 
