@@ -8,6 +8,7 @@
       @command="on_bot_command"
       :commands_prop="bot_commands"
       :scenario="bot_config.scenario"
+      database_file="temp/tbot/bot_0db.json"
       :BOT_API_TOKEN="bot_config.bot_api_token"
     />
 </program_wrapper>

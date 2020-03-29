@@ -62,7 +62,7 @@ export default {
                         top: 0;
                         overflow: hidden;
                         padding: 8px;
-                        background: #ddd;
+                        background: #1b1b1b;
                         
                         > .repostbot_wrapper {
                                 width: 900px;

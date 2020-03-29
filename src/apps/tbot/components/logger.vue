@@ -2,10 +2,11 @@
   <program_wrapper
     title="Logger"
     class="logger"
-
+    ref="program_wrapper"
   >
     <list
-      :reverse="true"
+      :reverse="false"
+      ref="list"
     >
       <div
         class="item"
@@ -13,7 +14,10 @@
         v-bind:data-type="item.type"
         :key="index">
 
-        <div class="text_content" v-html="item.text_content"/>
+        <div 
+          class="text_content" 
+          v-html="`[${ dateformat( item.date, 'hh:MM:ss' ) }] ` + item.text_content"
+        />
 
       </div>
     </list>
@@ -25,6 +29,7 @@
 
 import program_wrapper from "apps/tbot/components/program_wrapper"
 import list from "apps/tbot/components/list"
+import dateformat from "dateformat"
 
 import Vue from "vue"
 export default Vue.extend({
@@ -47,19 +52,26 @@ export default Vue.extend({
           log ( text_message, type ) {
             this.state.log.push({
               type,
-              text_content: text_message
+              text_content: text_message,
+              date: +new Date()
             })
 
             this.state.log = this.state.log.slice(Math.max(this.state.log.length - 100, 0), this.state.log.length)
-
+            this.scroll_down()
 
           },
+          scroll_down () {
+            this.$refs.program_wrapper.scroll_down()
+          },
+          dateformat () {
+            return dateformat.apply(null, arguments)
+          }
         }
 })
 </script>
 <style lang="less">
   .logger {
-
+    min-height: 200px;
     .list {
        
       .item {

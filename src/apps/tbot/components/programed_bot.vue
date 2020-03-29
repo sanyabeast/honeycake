@@ -184,7 +184,7 @@ export default Vue.extend({
             let result = ()=> { console.log( `mockup for: ${ JSON.stringify( config ) }` ) }
 
             if ( smart_value ) {
-              this.log(`smart-value: ${ smart_value.type } - ${smart_value.arg }`)
+              // this.log(`smart-value: ${ smart_value.type } - ${smart_value.arg }`)
 
               switch ( smart_value.type ) {
                 case "scene/enter":

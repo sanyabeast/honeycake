@@ -75,7 +75,9 @@ npm manifest:
       "webpack-dev-server": "^3.10.3",
       "xml-loader": "^1.2.1",
       "yaml-loader": "^0.5.0",
-      "nanoevents": "5.1.5"
+      "nanoevents": "5.1.5",
+      "gsap": "3.2.6",
+      "dateformat": "3.0.3"
     },
     "dependencies": {
       "args-parser": "^1.1.0",

@@ -61,8 +61,23 @@ export default Vue.extend({
           on_webogram_request ( { event, payload } ) {
             // console.log(payload)
           },
+          get_contact_caption ( contact ) {
+            return contact.username || contact.title || contact.id
+          },
           on_webogram_message ( { event, payload }) {
-            this.log(`message: ${payload.type}: ${payload.text||""}`, payload.type )
+
+            let data = payload.data
+
+            switch (payload.type) {
+              case "message":
+                this.log(`message from ${ this.get_contact_caption( data.from ) } ( ${ data.message.type + ( data.message.type === "group" ? ", " + data.message.mediagroup.length : "" ) } )`)
+                break;
+            
+              default:
+                this.log(`event: ${ payload.type }`)
+                break;
+            }
+
             console.log(payload)
             // if ( payload.type === "update" ) this.on_ripper_update( event, payload )
           },

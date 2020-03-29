@@ -29,7 +29,7 @@ export default Vue.extend({
   name: "bot",
   mixins: [],
   components: { logger, program_wrapper },
-  props: ["BOT_API_TOKEN", "commands_prop"],
+  props: ["BOT_API_TOKEN", "commands_prop", "database_file"],
   data () {
     return {
       extra_commands: [
@@ -41,7 +41,6 @@ export default Vue.extend({
         "userscount"
       ],
       database_object: {},
-      database_file: "temp/tbot/bot_0db.json",
       auto_launch: true,
       state: {
         log: []
@@ -116,8 +115,8 @@ export default Vue.extend({
     })
 
     /*!test*/
+    this.log("init commands...", "system");
     this.commands_prop.concat(this.extra_commands).forEach((item, index)=>{
-      this.log("init commands", "system");
       this.bot.command(item, this.on_command)
     })
 
@@ -141,7 +140,7 @@ export default Vue.extend({
 
       forEach(ulist, ( user_data )=>{
 
-        this.send_message( user_data.id, this.apply_template( {
+        this.send_text( user_data.id, this.apply_template( {
           from: user_data,
           message: {}
         }, message ) )
@@ -276,17 +275,17 @@ export default Vue.extend({
         return `/${ value }\n`
       } ) }`)
     },
-    send_message ( chat_id, text ) {
+    send_text ( chat_id, text ) {
       this.log(`sending message to ${ chat_id } - "${this.get_short_message(text)}"`, "sending")
       this.bot.telegram.sendMessage( chat_id, text )
     },
-    send_image ( chat_id, image_url ) {
-      this.log(`sending image to ${ chat_id } - "${image_url}"`, "sending")
+    send_photo ( chat_id, image_data ) {
+      this.log(`sending image to ${ chat_id } - "${image_data.url}"`, "sending")
       this.bot.telegram.sendPhoto( chat_id, {
-        source: image_url
-      } )
+        source: image_data.url,
+      }, { caption: image_data.caption || undefined } )
     },
-    send_media_group ( chat_id, media ) {
+    send_mediagroup ( chat_id, media ) {
       let media_group = transform(media, (result, value, key)=>{
         result[key] = {
           type: value.type,

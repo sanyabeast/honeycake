@@ -61,8 +61,6 @@ export default {
 </script>
 <style lang="less">
   .repostbot_wrapper > .container > .content {
-    height: 100%;
-    overflow: hidden;
 
   }
 </style>

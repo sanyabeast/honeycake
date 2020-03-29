@@ -27,8 +27,8 @@ let channel_data = action_manager.read_json("temp/tbot/channel_data.json") || {}
 
 const BOTTING_SPEED_X = 1
 const TAG = "TG_RIPPER"
-const GROUPED_MESSAGE_AWAIT_TIMEOUT = 2000
-const MESSAGE_PROCESS_AWAIT_TIMEOUT = 8000
+const GROUPED_MESSAGE_AWAIT_TIMEOUT = 5000
+const MESSAGE_PROCESS_AWAIT_TIMEOUT = 20000
 
 /*events*/
 const { createNanoEvents } = require('nanoevents')
@@ -86,7 +86,7 @@ class TGWorker {
               log("retry in 500ms");
               event.retry_index = isNumber( event.retry_index ) ? ( event.retry_index + 1 ) : 0
               emitter.emit( "hook.update.message", event ) 
-            }, 500 )
+            }, 1000 )
             return;
           }
 
@@ -125,7 +125,6 @@ class TGWorker {
 
           send( "message", {
             type: "session.start",
-            text: `"telegram.session.start" (${ event.unique_id })`,
             data: event
           } );
 
@@ -205,7 +204,6 @@ class TGWorker {
       
       send( "message", {
         type: "message.text",
-        text: `"telegram.message.text" (${ payload.from.username || payload.from.title })`,
         data: payload
       } );
 
@@ -218,7 +216,6 @@ class TGWorker {
 
       send( "message", {
         type: "message",
-        text: `"telegram.message" (${ payload.from.username })`,
         data: payload
       } );
     } )

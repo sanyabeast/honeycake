@@ -3,12 +3,17 @@
         title="Postbot"
         class="postbot"
 >
+        <logger
+          class="postbot_logger"
+          ref="logger"
+        />
         <programed_bot
                 ref="telegraf_bot"
                 @command="on_bot_command"
                 :commands_prop="bot_commands"
                 :BOT_API_TOKEN="bot_config.bot_api_token"
                 :scenario="bot_config.scenario"
+                database_file="temp/tbot/bot_0db.json"
         />
 </program_wrapper>
 
@@ -21,6 +26,8 @@ import programed_bot from "apps/tbot/components/programed_bot"
 import PromiseQueue from "apps/default/lib/PromiseQueue.js"
 import forEach from "lodash/forEach"
 import debounce from "lodash/debounce"
+import dateformat from "dateformat"
+
 
 export default {
   name: "App",
@@ -55,11 +62,42 @@ export default {
   methods: {
           log ( text_message, type ) {
                   this.$refs.logger.log(text_message, type)
+                  this.$refs.logger.scroll_down()
           },
           on_bot_command () {console.log(arguments)},
           run_task ( task_data, date ) {
-                  this.remove_task( date )
-                console.log(task_data) 
+                this.log(`running task... ${ task_data.type }`, "running_task")
+                this.remove_task( date )
+                switch ( task_data.type ) {
+                  case "post": 
+                    this.post( task_data )
+                  break;
+                  default:
+                    console.log(task_data)
+                }
+ 
+          },
+          post ( task_data ) {
+            let target_chats = task_data.targets
+            let telegraf_bot = this.$refs.telegraf_bot
+
+            this.log(`posting ${ task_data.type }...`, "posting")
+
+            if ( task_data.mediagroup ) {
+              forEach( target_chats, ( chat_id )=> telegraf_bot.send_mediagroup( task_data.mediagroup ) );
+              return;
+            }
+
+            if ( task_data.photo ) {
+              forEach( target_chats, ( chat_id )=> telegraf_bot.send_photo( chat_id, task_data.photo ) );
+              return;
+            }
+
+            if  ( task_data.text ) {
+              forEach( target_chats, ( chat_id )=> telegraf_bot.send_text( chat_id, task_data.text ) );
+              return;
+            }
+              
           },
           defer_task( date, task ) {
                 if ( date < (+new Date()) ) {
@@ -77,7 +115,10 @@ export default {
                 let is_exceeded = this.defer_task( date, task )
 
                 if ( is_exceeded ){
-                        delete this.schedule.tasks[ date ]
+                  delete this.schedule.tasks[ date ]
+                  this.log(`task skipped (${ task.type }) - exceeded`, "task_skipped")
+                } else {
+                  this.log(`task added (${ task.type }, ${ dateformat(date, 'h:MM:ss') })`, "task_added")
                 }
 
                 this.save_file()
@@ -100,5 +141,23 @@ export default {
 
 </script>
 <style lang="less">
+  .postbot_logger {
+    .item[data-type="task_added"] {
+      background: #b9e1ff;
+      color: #25547d;
+    }
 
+    .item[data-type="task_skipped"] {
+      color: purple;
+    }
+
+    .item[data-type="running_task"] {
+      color: grey;
+    }
+
+    .item[data-type="posting"] {
+      color: #007304;
+      background: #78ff8a;
+    }
+  }
 </style>

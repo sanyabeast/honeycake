@@ -20,6 +20,9 @@
 <script lang="js">
 
 import Vue from "vue"
+import { TweenMax } from "gsap"
+import debounce from "lodash/debounce"
+
 export default Vue.extend({
         name: "program_wrapper",
         mixins: [],
@@ -49,44 +52,59 @@ export default Vue.extend({
             }
 
             let module_nodes = this.$el.querySelectorAll(".content > div")
-            console.log(module_nodes)
 
             return module_nodes.length
           }
         },
-        mounted () {},
+        mounted () {
+          this.scroll_down = debounce(()=>{
+            TweenMax.fromTo( this.$refs.content, 0.15, {
+              scrollTop: this.$refs.content.scrollTop,
+            }, {
+              scrollTop: this.$refs.content.scrollHeight - this.$refs.content.getBoundingClientRect().height
+            } )
+          }, 250)
+        },
         destroyed () {},
-        methods: {}
+        methods: {
+          scroll_down () {
+            
+          }
+        }
 })
 </script>
 <style lang="less">
   .program_wrapper {
       display: flex;
-      background: #00000029 ;
-      padding: 8px;
+      background: #484848;
+      background: linear-gradient(90deg, #629867 0%, #7bb8bb 100%);
+      padding: 2px;
       justify-content: stretch;
       align-items: stretch;
-      border-radius: 24px;
+      border-radius: 6px;
       width: 100%;
       height: 100%;
-      
+      overflow: hidden;
+      box-shadow: 0px 4px 32px -14px #2b1900;
 
       .container {
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: #7a79b5;
+        background: #757575;
+        background: linear-gradient(90deg, hsl(210, 23%, 47%) 0%, #967193 100%);
+        overflow: hidden;
 
         .header {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #dad0d0;
-          height: 24px;
-          border-bottom: 2px dotted #b4b4b4;
-          color: #3c3c3c;
-          font-size: 14px;
-     
+          background: #e8e8e8;
+          background: linear-gradient(90deg, rgb(215, 235, 255) 0%, rgb(255, 237, 244) 100%);
+          height: 36px;
+          border-bottom: 1px solid #c7c7c7;
+          color: #5f5f5f;
+          font-size: 16px;
 
           .text {
             font-family: 'Biryani', sans-serif;
@@ -94,7 +112,7 @@ export default Vue.extend({
         }
 
         .content {
-          height: calc(100% - 24px);
+          height: calc(100% - 36px);
           overflow: auto;
           display: grid;
           grid-gap: 16px;
@@ -103,78 +121,60 @@ export default Vue.extend({
       }
 
       .program_wrapper {
-        display: flex;
-        background: #ffbfbf;
-        padding: 8px;
-        justify-content: stretch;
-        align-items: stretch;
-        border-radius: 24px;
-
-        &:nth-child(2n){
-          background-color: #a5c9ff;
-        }
-
-        &:nth-child(3n){
-          background-color: #74ff47;
-        }
-
-        &:nth-child(4n){
-          background-color: #ffe047;
-        }
-
-        &:nth-child(5n){
-          background-color: #ffa981;
-        }
-      
-        .program_wrapper .container {
-          background-color: #d6e7db;
-        }
-
-        .program_wrapper {
-           &:nth-child(5n){
-            background-color: #a5c9ff;
-          }
-
-          &:nth-child(4n){
-            background-color: #74ff47;
-          }
-
-          &:nth-child(3n){
-            background-color: #ffe047;
-          }
-
-          &:nth-child(2n){
-            background-color: #ffa981;
-          }
-        
+        .header {
+          background: #d8d8d8;
+          border-color: #969696;
+          background: linear-gradient(90deg, #dcd0d0 0%, #e3d9df 100%);
+          color: #404040;
+          height: 32px;
+          font-size: 14px;
         }
 
         .container {
-          width: 100%;
-          height: 100%;
-          overflow: hidden;
-          background: #ffe1d7;
+          background: #efefef;
+        }
 
-          .header {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #dad0d0;
-            height: 24px;
-            border-bottom: 2px dotted #b4b4b4;
-            color: #3c3c3c;
-            font-size: 14px;
+        .content {
+          height: calc(100% - 32px);
+        }
+      }
+
+      .program_wrapper .program_wrapper  {
+        .header {
+          background: #bdbdbd;
+          border-color: #949494;
+          background: linear-gradient(90deg, #dcd0d0 0%, #e3d9df 100%);
+          color: #191919;
+          height: 28px;
+        }
+
+        .container {
+          background: #e0e0e0;
+          background: linear-gradient(90deg, hsl(147, 100%, 94%) 0%, #fdfff2 100%);
+        }
+
+        .content {
+          height: calc(100% - 28px);
+        }
+      }
       
+      .program_wrapper .program_wrapper .program_wrapper  {
+        .header {
+          background: #949494;
+          border-color: #636363;
+          background: linear-gradient(90deg, #7b6565 0%, #99a5af 100%);
+          color: #ffffff;
+          height: 24px;
+          font-size: 12px;
+        }
 
-            .text {
-              font-family: 'Biryani', sans-serif;
-            }
-          }
-
-          .content {
-            height: calc(100% - 24px);
-            overflow: auto;
-          }
+        .container {
+          background: white;
+          background: linear-gradient(90deg, hsl(0, 0%, 100%) 0%, #ffe8f1 100%);
+        }
+        
+        .content {
+          height: calc(100% - 24px);
         }
       }
 
