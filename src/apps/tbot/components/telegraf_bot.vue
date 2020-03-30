@@ -37,7 +37,6 @@ export default Vue.extend({
         "help",
         "commands",
         "me",
-        "echo",
         "userscount"
       ],
       database_object: {},
@@ -58,65 +57,95 @@ export default Vue.extend({
     
     /*test*/
 
-    bot.on('inline_query', async ({ inlineQuery, answerInlineQuery }) => {
-      const apiUrl = `http://recipepuppy.com/api/?q=${inlineQuery.query}`
-      const response = await fetch(apiUrl)
-      const { results } = await response.json()
-      const recipes = results
-        .filter(({ thumbnail }) => thumbnail)
-        .map(({ title, href, thumbnail }) => ({
-          type: 'article',
-          id: thumbnail,
-          title: title,
-          description: title,
-          thumb_url: thumbnail,
-          input_message_content: {
-            message_text: title
-          },
-          reply_markup: Markup.inlineKeyboard([
-            Markup.urlButton('Go to recipe', href)
-          ])
-        }))
-      return answerInlineQuery(recipes)
-    })
+    // bot.on('inline_query', async ({ inlineQuery, answerInlineQuery }) => {
+    //   const apiUrl = `http://recipepuppy.com/api/?q=${inlineQuery.query}`
+    //   const response = await fetch(apiUrl)
+    //   const { results } = await response.json()
+    //   const recipes = results
+    //     .filter(({ thumbnail }) => thumbnail)
+    //     .map(({ title, href, thumbnail }) => ({
+    //       type: 'article',
+    //       id: thumbnail,
+    //       title: title,
+    //       description: title,
+    //       thumb_url: thumbnail,
+    //       input_message_content: {
+    //         message_text: title
+    //       },
+    //       reply_markup: Markup.inlineKeyboard([
+    //         Markup.urlButton('Go to recipe', href)
+    //       ])
+    //     }))
+    //   return answerInlineQuery(recipes)
+    // })
 
-    bot.on('chosen_inline_result', ({ chosenInlineResult }) => {
-      console.log('chosen inline result', chosenInlineResult)
-    })
+    // bot.on('chosen_inline_result', ({ chosenInlineResult }) => {
+    //   console.log('chosen inline result', chosenInlineResult)
+    // })
 
-    bot.command('pyramid', (ctx) => {
-      return ctx.reply('Keyboard wrap', Telegraf.Extra.markup(
-        Telegraf.Markup.keyboard(['one', 'two', 'three', 'four', 'five', 'six'], {
-          wrap: (btn, index, currentRow) => currentRow.length >= (index + 1) / 2
-        })
-      ))
-    })
+    // bot.command('pyramid', (ctx) => {
+    //   let extra = Telegraf.Extra.HTML()
+     
+    //   console.log(extra)
+    //   return ctx.reply('<b>Keyboard</b> <i>wrap</i>', extra )
+    // })
 
-    bot.command('simple', (ctx) => {
-      return ctx.replyWithHTML('<b>Coke</b> or <i>Pepsi?</i>')
-    })
+    // bot.command('simple', (ctx) => {
+    //   return ctx.replyWithHTML('<b>Coke</b> or <i>Pepsi?</i>')
+    // })
 
-    bot.command('inline', (ctx) => {
-      return ctx.reply('<b>Coke</b> or <i>Pepsi?</i>', Telegraf.Extra.HTML().markup((m) =>
-        m.inlineKeyboard([
-          m.callbackButton('Coke', 'lol'),
-          m.callbackButton('Pepsi', 'kek'),
-        ])))
-    })
+    // bot.command('inline', (ctx) => {
+    //   return ctx.reply('<b>Coke</b> or <i>Pepsi?</i>', Telegraf.Extra.HTML().markup((m) => {
+    //     m.inlineKeyboard([
+    //       m.callbackButton('Coke', 'lol'),
+    //       m.callbackButton('Pepsi', 'kek'),
+    //     ])
 
-    bot.command('random', (ctx) => {
-      return ctx.reply('random example',
-        Telegraf.Markup.inlineKeyboard([
-          Telegraf.Markup.callbackButton('Coke', 'Coke'),
-          Telegraf.Markup.callbackButton('Dr Pepper', 'Dr Pepper', Math.random() > 0.5),
-          Telegraf.Markup.callbackButton('Pepsi', 'Pepsi')
-        ]).extra()
-      )
-    })
+    //     console.log(m)
+
+    //     return m
+    //   }))
+    // })
+
+    // bot.command('random', (ctx) => {
+    //   let extra = Telegraf.Markup.inlineKeyboard([
+    //     Telegraf.Markup.callbackButton('Coke', 'lol'),
+    //     Telegraf.Markup.callbackButton('Pepsi', 'kek'),
+    //   ]).extra();
+
+    //   console.log( extra )
+      
+    //   return ctx.reply('<b>Coke</b> or <i>Pepsi?</i>', extra)
+    // })
+
+    // bot.command('caption', (ctx) => {
+    //   console.log()
+    //   return ctx.replyWithPhoto({ url: 'https://picsum.photos/200/300/?random' },
+    //     Telegraf.Extra.load({ caption: 'Caption' })
+    //       .markdown()
+    //       .markup((m) => {
+    //         m.inlineKeyboard([
+    //           m.callbackButton('Plain', 'plain'),
+    //           m.callbackButton('Italic', 'italic'),
+    //           m.callbackButton('Italic', 'italic'),
+    //           m.callbackButton('Italic', 'italic'),
+    //           m.callbackButton('Italic', 'italic'),
+    //           m.callbackButton('Italic', 'italic')
+
+    //         ])
+    //         console.log(m)
+    //         return m;
+
+
+    //       }
+    //       )
+    //   )
+    // })
 
     /*!test*/
     this.log("init commands...", "system");
     this.commands_prop.concat(this.extra_commands).forEach((item, index)=>{
+      console.log(item)
       this.bot.command(item, this.on_command)
     })
 
@@ -201,13 +230,13 @@ export default Vue.extend({
       bot.on("text", this.on_text)
 
     },
-    enter_scene ( scene_name ) {
+    enter_scene ( ctx, scene_name ) {
       this.log("enter scene")
-        return Telegraf.Stage.enter( scene_name )
+        return ctx.scene.enter( scene_name )
     },
-    leave_scene () {
+    leave_scene ( ctx ) {
       this.log("leave scene")
-      return Telegraf.Stage.leave()
+      return ctx.scene.leave()
     },
     launch () {
       this.init_events()
@@ -253,8 +282,6 @@ export default Vue.extend({
       } else if ( "me" === command_name ) {
         let user_data = this.get_user_data ( telegraf_ctx );
         telegraf_ctx.replyWithHTML( `You are <i>${user_data.first_name} ${user_data.last_name}</i>`, this.object_to_markup( user_data, null, "\t" ) )
-      } else if ( "echo" === command_name ) {
-        telegraf_ctx.reply( telegraf_ctx.message.text )
       } else if ( "start" === command_name ) {
         this.update_user_data( telegraf_ctx )
       } else if ( "userscount" === command_name ) {
@@ -271,13 +298,14 @@ export default Vue.extend({
     },
     /*sending*/
     send_help ( telegraf_ctx ) {
+      console.log( telegraf_ctx )
       telegraf_ctx.replyWithHTML(`<b>Availabale commands:</b>\n${ this.object_to_string( this.commands_prop.concat(this.extra_commands), ( key, value )=>{
         return `/${ value }\n`
       } ) }`)
     },
     send_text ( chat_id, text ) {
       this.log(`sending message to ${ chat_id } - "${this.get_short_message(text)}"`, "sending")
-      this.bot.telegram.sendMessage( chat_id, text )
+      this.bot.telegram.sendMessage( chat_id, text, Telegraf.Extra.HTML() )
     },
     send_photo ( chat_id, image_data ) {
       this.log(`sending image to ${ chat_id } - "${image_data.url}"`, "sending")
@@ -290,6 +318,7 @@ export default Vue.extend({
         result[key] = {
           type: value.type,
           media: {
+            // source: value.url
             source: value.url
           },
           caption: value.caption

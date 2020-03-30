@@ -15,10 +15,17 @@
                         v-if="run_storebot"
                         :bot_config="tbot_config.bots.galaxy_market"
                 />
+
+                <folderpostbot
+                        v-if="run_folderpostbot"
+                        :bot_config="tbot_config.bots.repostman"
+                        database_path="secret/tbot/folderpostbot/db1"
+                />
         </div>
 </template>
 <script lang="js">
 
+import folderpostbot from "apps/tbot/bots/folderpostbot"
 import repostbot from "apps/tbot/bots/repostbot"
 import storebot from "apps/tbot/bots/storebot"
 import electron_app from "lib_app/components/electron_app"
@@ -30,11 +37,12 @@ import tbot_config from "secret/tbot.json"
 
 export default {
         name: "App",
-        components: { repostbot, storebot, electron_app },
+        components: { folderpostbot, repostbot, storebot, electron_app },
         data () {
                 return {
-                        run_repostbot: true,
-                        run_storebot: false,
+                        run_repostbot: false,
+                        run_storebot: true,
+                        run_folderpostbot: false
                 }
         },
         computed: {

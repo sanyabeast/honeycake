@@ -70,6 +70,14 @@ export default Vue.extend({
               payload
             } )
           },
+          send_data( event_type, data ){
+            if ( this.browser_window ) {
+              this.browser_window.send( event_type, {
+                source_id: remote.getCurrentWindow().id,
+                data,
+              } )
+            }
+          }
         }
 })
 </script>

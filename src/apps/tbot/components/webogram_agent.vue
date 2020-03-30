@@ -9,7 +9,7 @@
       class="electron_app"
     >
       <ElectronApp
-        ref="browser_window"
+        ref="electron_app"
         url="http://localhost:8000/app/index.html"
         :width="800"
         :height="600"
@@ -38,7 +38,6 @@ export default Vue.extend({
         props: {},
         data () {
           return {
-            browser_window: null
           }
         },
         watch: {},
@@ -64,7 +63,12 @@ export default Vue.extend({
           get_contact_caption ( contact ) {
             return contact.username || contact.title || contact.id
           },
+          requst_media_download ( context ) {
+            this.send_data( "message.download_media", context )
+          },
           on_webogram_message ( { event, payload }) {
+
+            this.$emit( "message", payload.data )
 
             let data = payload.data
 
@@ -89,11 +93,10 @@ export default Vue.extend({
             })
           }, 
           send_data ( event_type, data ) {
-            if ( this.browser_window ) {
-              this.browser_window.send( event_type, {
-                source_id: remote.getCurrentWindow().id,
-                data,
-              } )
+            console.log(event_type)
+            if ( this.$refs.electron_app ) {
+              this.log(`sending event to webogram (${ event_type })`)
+              this.$refs.electron_app.send_data( event_type, data )  
             }
           }
         }

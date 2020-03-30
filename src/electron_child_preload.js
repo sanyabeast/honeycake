@@ -9,38 +9,6 @@ const current_window = window.current_window = remote.getCurrentWindow()
 
 let requests = {}
 
-ipc.on("request", ( event, payload )=>{
-  if ( payload.source_id === current_window.id ) return
-
-  console.log("REQUEST", event, payload)
-  ipc.send( "response", {
-    id: payload.id,
-    type: "response",
-    data: {
-      test: true
-    }
-  } )
-})
-
-ipc.on("message", ( event, payload )=>{
-  if ( payload.source_id === current_window.id ) return
-
-  console.log("MESSAGE", event, payload)
-})
-
-ipc.on("response", ( event, payload )=>{
-  if ( payload.source_id === current_window.id ) return
-
-  let id = payload.id
-  let request_data = requests[id]
-
-  if (request_data && request_data.callback) {
-    request_data.callback(payload)
-  }
-
-  console.log("RESPONSE", event, payload)
-})
-
 window.send = function( event_type, data ) {
   console.log(`%cELECTRON CHILD WORKER: SEND, ${ event_type }`, "color: #ffbc00; font-weight: bold;", data)
   console.log(`%c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`, "color: #ffbc00; font-weight: bold;")

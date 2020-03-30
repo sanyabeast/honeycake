@@ -45,7 +45,7 @@ export default Vue.extend({
           let bot = this.bot
 
           if (this.scenario  ) {
-            let scenario_data = this.scenario_data = action_manager.read_json( this.scenario )
+            let scenario_data = this.scenario_data = action_manager.read_yaml( this.scenario )
             this.scenario_build_data = this.build_scenario( bot, scenario_data )
           }
           this.launch()
@@ -54,14 +54,31 @@ export default Vue.extend({
         methods: {
           build_scenario ( bot, scenario_data ) {
  
+            // const kekScene = new Telegraf.BaseScene('kek')
+            // kekScene.enter((ctx) => ctx.reply('Hi'))
+            // kekScene.leave((ctx) => ctx.reply('Bye'))
+            // kekScene.hears(/.+/, Telegraf.Stage.enter('kek'))
+
+            // const echoScene = new Telegraf.BaseScene('echo')
+            // echoScene.enter((ctx) => ctx.reply('echo scene'))
+            // echoScene.leave((ctx) => ctx.reply('exiting echo scene'))
+            // echoScene.command('back', Telegraf.Stage.leave())
+            // echoScene.hears(/.+/, (ctx) => ctx.reply(ctx.message.text))
+
+            // let stage = new Telegraf.Stage( [echoScene, kekScene], { ttl: 999 } )
+            // bot.use(Telegraf.session())
+            // bot.use(stage.middleware())
+
+            let stage = this.build_scenes( bot, scenario_data.scenes )
             let commands = this.build_commands( bot, scenario_data.commands )
             let events = this.build_events( bot, scenario_data.events )
             let hear_data = this.build_hears( bot, scenario_data.hears )
             let action_data = this.build_actions( bot, scenario_data.actions )
-            let stage = this.build_scenes( bot, scenario_data.scenes )
 
-            bot.use(Telegraf.session())
-            bot.use(stage.middleware())
+            
+
+            // bot.command('echo', (ctx) => ctx.scene.enter('echo'))
+            // bot.command('kek', (ctx) => ctx.scene.enter('kek'))
 
             return {
               stage,
@@ -75,47 +92,47 @@ export default Vue.extend({
             let stage = null
             let scenes = []
 
-            
             forEach( scenes_data, ( scene_data, index )=>{
               let scene = this.build_scene( bot, scene_data )
               scenes.push( scene )
             } )
 
-            stage = new Telegraf.Stage( scenes, { ttl: 10 } )
+            stage = new Telegraf.Stage( scenes, { ttl: 999 } )
+
+            bot.use(Telegraf.session())
+            bot.use(stage.middleware())
+
             return stage;
           },
           build_scene ( bot, scene_data ) {
             let scene = new Telegraf.BaseScene( scene_data.id )
 
-            forEach( scene_data.events, ( event_data, event_name )=>{
-              switch ( event_name ) {
-                case "enter":
-                  scene.enter( this.build_callback( event_data, event_name ) )
-                  break;
-                case "leave":
-                  scene.leave( this.build_callback( event_data, event_name ) )
-                  break;
-              }
-            } )
+            console.log(scene_data)
 
-            forEach( scene_data.commands, ( command_data, command_name )=>{
-              scene.command( new RegExp(command_name), this.build_callback( command_data, command_name ) )
-            } )
+            let commands = this.build_commands( scene, scene_data.commands )
+            let events = this.build_events( scene, scene_data.events )
+            let hear_data = this.build_hears( scene, scene_data.hears )
+            let action_data = this.build_actions( scene, scene_data.actions )
+
+            scene.enter((ctx) => ctx.reply('Hi'))
 
             return scene
           },
 
           build_commands ( ctx, commands ) {
+            if ( !commands ) return
             let result = null
           
             forEach( commands, ( data, index )=>{
-              ctx.command( new RegExp(data.id), this.build_callback( data.cb ) )
+              console.log(12,data.id, this.build_callback( data.cb ))
+              ctx.command( data.id, this.build_callback( data.cb ) )
 
             } )
 
           },
 
           build_events ( ctx, events ) {
+            if ( !events ) return
             let result = null
           
             forEach( events, ( data, index )=>{
@@ -130,6 +147,7 @@ export default Vue.extend({
           },
 
           build_hears ( ctx, hear_data ) {
+            if ( !hear_data ) return
             let result = null
 
             console.log("hears data", ctx, hear_data)
@@ -141,6 +159,7 @@ export default Vue.extend({
           },
 
           build_actions ( ctx, action_data ) {
+            if ( !action_data ) return
             let result = null
 
             console.log("actions data", action_data)
@@ -156,7 +175,7 @@ export default Vue.extend({
             let smart_values = [
               ["reply/text", "@reply:"],
               ["reply/html", "@reply-html:"],
-              ["scene/leave","@leave_scene:"],
+              ["scene/leave","@scene-leave"],
               ["scene/enter","@scene:"],
               ["reply/help","(@help:|@help)"],
               ["answer/cb-query/text","(@answer:|@answer)"],
@@ -190,29 +209,32 @@ export default Vue.extend({
                 case "scene/enter":
                   result = ( ctx ) => { 
                     this.log("entering scene...")
-                    this.enter_scene( this.apply_template( ctx, smart_value.arg ) )
+                    ctx.scene.enter( this.apply_template( ctx, smart_value.arg ) )
                   }
                   break;
                 case "scene/leave":
                   result = ( ctx ) => { 
                     this.log("leaving scene...")
-                    this.leave_scene()
+                    ctx.scene.leave()
                    }
                   break;
                 case "reply/text":
                   result = ( ctx ) => { 
-                     this.log("reply/text")
-                    ctx.reply( this.apply_template( ctx, smart_value.arg ) )
+                    console.log(ctx)
+                    this.log("reply/text")
+                    this.send_text( ctx.from.id, this.apply_template( ctx, smart_value.arg ) )
                    }
                   break;
                 case "reply/html":
                   result = ( ctx ) => { 
-                     this.log("reply/html")
-                    ctx.replyWithHTML( this.apply_template( ctx, smart_value.arg ) )
+                    this.log("reply/html")
+                    console.log(ctx)
+                    this.send_text( ctx.from.id, this.apply_template( ctx, smart_value.arg ) )
                    }
                   break;
                 case "reply/help":
                   result = ( ctx ) => { 
+                    console.log(ctx)
                     this.log("reply/help")
                     this.send_help( ctx )
                    }

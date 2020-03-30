@@ -2,18 +2,22 @@
 
 const ipc = window.ipc = require('electron').ipcRenderer;
 
+const YAML = window.YAML = require("yaml")
 const get = require("lodash/get")
 const set = require("lodash/set")
 const unset = require("lodash/unset")
 const find = require("lodash/find")
 const path = window.path = require("path");
+const watch = window.watch = require("watch");
 const fs = window.fs = require("fs");
 const directory_tree = window.directory_tree = require("directory-tree");
+const mkdirp = window.mkdirp = require("mkdirp");
 const jsonfile = window.jsonfile = require("jsonfile");
 const { ActionManager } = require(path.resolve(process.cwd(), "scripts/action.js"))
 const { remote } = require('electron')
 const randomstring = require("randomstring");
 const windowManager = remote.require('electron-window-manager');
+const current_window = window.current_window = remote.getCurrentWindow()
 
 const temp = require(path.resolve(process.cwd(), "scripts/temp.js"))
 
@@ -28,6 +32,21 @@ const action_manager = window.action_manager = new ActionManager()
 /*temp*/
 
 window.temp = temp
+
+window.send = function( event_type, data ) {
+  console.log(`%cELECTRON CHILD WORKER: SEND, ${ event_type }`, "color: #ffbc00; font-weight: bold;", data)
+  console.log(`%c~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`, "color: #ffbc00; font-weight: bold;")
+
+  ipc.send( event_type, {
+    source_id: current_window.id,
+    ...data
+  } )
+
+  current_window.send( event_type, {
+    source_id: current_window.id,
+    ...data
+  } )
+}
 
 class ElectronWindowManager {
   windows = {};

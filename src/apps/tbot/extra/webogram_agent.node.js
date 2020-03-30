@@ -72,6 +72,7 @@ class TGWorker {
 
     this.file_manager = null;
     this.mtp_file_manager = null;
+    this.photos_manager = null;
     
     emitter.on( "hook.update.message", ( event )=>{
       // log(event);
@@ -192,6 +193,12 @@ class TGWorker {
       this.file_manager = event
     } )
 
+    emitter.on( "hook.photos_manager", ( event )=>{
+      log("photos_manager", event)
+      this.photos_manager = event
+    } )
+
+
     emitter.on( "hook.mtp_file_manager", ( event )=>{
       log("mtp_file_manager", event)
       this.mtp_file_manager = event
@@ -225,14 +232,68 @@ class TGWorker {
     emitter.on( "telegram.typing.start", ( payload )=> log( payload ) )
     emitter.on( "telegram.session.start", ( payload )=> log( payload ) )
 
+    /*ipc*/
+    ipc.on("message.download_media", ( event, payload )=>{
+      this.download_media ( payload.data.context, payload.data.save_path )
+      console.log("message.download_media", event, payload )
+    })
+      
+
     log("success")
     
+  }
+
+  download_media ( context, save_path ) {
+
+    if ( context.message.photo ) {
+      let dl_location = this.write_blob_to_file( context.message.photo.url, save_path, ".jpg" )
+      context.message.photo.local_path = dl_location
+    } else if ( context.message.mediagroup ) {
+      forEach( context.message.mediagroup, ( media_data )=>{
+        if ( media_data.type === "photo" ) {
+          let dl_location = this.write_blob_to_file( media_data.data.url, save_path, ".jpg" )
+          media_data.local_path = dl_location
+        }
+      } )
+    }
+
+    console.log( context, save_path )
+    
+    context.type = "message.downloaded"
+
+    send( "message", {
+      type: "message.downloaded_media",
+      data: context
+    } );
   }
 
   resolve_blob_url ( blob, type ) {
     let url = this.file_manager.getUrl(blob, type )
     log("resolve blob url", url)
     return url
+  }
+
+  write_blob_to_file ( blob_url, save_path, extension ) { 
+    let name = randomstring.generate({ 
+      length: 32, 
+      charset: 'alphabetic' 
+    }); 
+ 
+    let file_name = `${md5(blob_url)}${extension}`; 
+    save_path = `${save_path}` 
+
+    if (!fs.existsSync(path.join(process.cwd(), `${save_path}/${file_name}`))){ 
+      fetch(blob_url).then((r)=> { 
+          return r.arrayBuffer() 
+      } ).then( r => { 
+ 
+          if ( !fs.existsSync(path.join(process.cwd(), `${save_path}`)) ) { 
+            mkdirp.sync(`${save_path}`) 
+          } 
+ 
+          fs.writeFileSync(path.join(process.cwd(), `${save_path}/${file_name}`), Buffer.from(r), "binary") 
+      }) 
+    } 
   }
 
   get_photo_data ( photo ) {
@@ -287,7 +348,8 @@ class TGWorker {
           resolve( {
             url: blob_url,
             size: size_obj,
-            caption: caption
+            caption: caption,
+            size_index: photo.$size_index || 0
           })
         } )
 

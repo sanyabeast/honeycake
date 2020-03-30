@@ -17,9 +17,8 @@ const set = require("lodash/set")
 const unset = require("lodash/unset")
 const package_object = require(path.resolve(process.cwd(), "package.json"))
 
-let json_cache = {
-
-}
+let json_cache = {}
+let yaml_cache = {}
 
 class ActionManager {
         match_any_regexp ( string, regexps ) {
@@ -245,13 +244,39 @@ class ActionManager {
                 return data
         }
 
-        
-
         write_json ( rel_path, data ) {
                 let abs_path = path.join(CWD, `/${rel_path}`)
                 json_cache[rel_path] = data
                 console.log(abs_path, data)
                 fs.writeFileSync( abs_path, JSON.stringify(data, null, "\t"), "utf-8" )
+                return data
+        }
+
+        read_yaml ( rel_path ) {
+                let abs_path = path.join(CWD, `/${rel_path}`)
+
+                if ( yaml_cache[rel_path] !== undefined ) {
+                        return yaml_cache[rel_path]
+                }
+
+                let data = {}
+                if ( fs.existsSync(abs_path) ) {
+                        data = YAML.parse(fs.readFileSync(abs_path, "utf-8"))
+                } 
+
+                yaml_cache[rel_path] = data
+
+                return data
+        }
+        
+
+        
+
+        write_yaml ( rel_path, data ) {
+                let abs_path = path.join(CWD, `/${rel_path}`)
+                yaml_cache[rel_path] = data
+                console.log(abs_path, data)
+                fs.writeFileSync( abs_path, YAML.stringify(data, null, "\t"), "utf-8" )
                 return data
         }
 
@@ -269,6 +294,22 @@ class ActionManager {
         unset_json ( rel_path, prop_path ) {
                 let json = this.read_json( rel_path )
                 return unset( json, prop_path )
+        }
+
+        set_yaml ( rel_path, prop_path, value ) { 
+                let yaml = this.read_yaml( rel_path )
+                set( yaml, prop_path, value )
+                this.write_yaml( rel_path, yaml )
+        }
+
+        get_yaml ( rel_path, prop_path ) {
+                let yaml = this.read_yaml( rel_path )
+                return get( yaml, prop_path )
+        }
+
+        unset_yaml ( rel_path, prop_path ) {
+                let yaml = this.read_yaml( rel_path )
+                return unset( yaml, prop_path )
         }
 
 }
