@@ -17,12 +17,31 @@ import forEach from "lodash/forEach"
 import find from "lodash/find"
 import template from "lodash/template"
 import emoji from "emoji-json-list"
+import set from "lodash/set"
+import get from "lodash/get"
+import unset from "lodash/unset"
+import isString from "lodash/isString"
+import isArray from "lodash/isArray"
+import isUndefined from "lodash/isUndefined"
+import isNull from "lodash/isNull"
+import isObject from "lodash/isObject"
+import merge from "lodash/merge"
+import chunk from "lodash/chunk"
 
 export default Vue.extend({
         name: "programed_bot",
         mixins: [ bot ],
         components: {},
-        props: ["scenario"],
+        props: {
+          scenario: {
+            type: String,
+            default () { return null }
+          },
+          reply_timeout: {
+            type: Number,
+            default () { return 500 }
+          }
+        },
         data () {
           return {
             auto_launch: false,
@@ -52,22 +71,21 @@ export default Vue.extend({
         },
         destroyed () {},
         methods: {
+          is_file ( data ) {
+            return isString( data ) && data.match(/@file/)
+          },
+          resolve_file_data ( data ) {
+            if ( this.is_file( data ) ) {
+              let url = data.replace( "@file:", "" )
+              this.log(`resolving scenario chunk (${ url })`)
+              return window.action_manager.read_yaml( url )
+            } else {
+              return data
+            }
+          },
           build_scenario ( bot, scenario_data ) {
  
-            // const kekScene = new Telegraf.BaseScene('kek')
-            // kekScene.enter((ctx) => ctx.reply('Hi'))
-            // kekScene.leave((ctx) => ctx.reply('Bye'))
-            // kekScene.hears(/.+/, Telegraf.Stage.enter('kek'))
-
-            // const echoScene = new Telegraf.BaseScene('echo')
-            // echoScene.enter((ctx) => ctx.reply('echo scene'))
-            // echoScene.leave((ctx) => ctx.reply('exiting echo scene'))
-            // echoScene.command('back', Telegraf.Stage.leave())
-            // echoScene.hears(/.+/, (ctx) => ctx.reply(ctx.message.text))
-
-            // let stage = new Telegraf.Stage( [echoScene, kekScene], { ttl: 999 } )
-            // bot.use(Telegraf.session())
-            // bot.use(stage.middleware())
+            scenario_data.data = this.resolve_file_data( scenario_data.data )
 
             let stage = this.build_scenes( bot, scenario_data.scenes )
             let commands = this.build_commands( bot, scenario_data.commands )
@@ -93,9 +111,19 @@ export default Vue.extend({
             let scenes = []
 
             forEach( scenes_data, ( scene_data, index )=>{
-              let scene = this.build_scene( bot, scene_data )
-              scenes.push( scene )
+              scene_data = this.resolve_file_data( scene_data )
+              if ( isArray( scene_data ) ) {
+                forEach( scene_data, ( data, index )=>{
+                  let scene = this.build_scene( bot, data )
+                  scenes.push( scene || null )
+                } )
+              } else if ( isObject( scene_data ) ) {
+                let scene = this.build_scene( bot, scene_data )
+                scenes.push( scene || null )
+              }
+              
             } )
+
 
             stage = new Telegraf.Stage( scenes, { ttl: 999 } )
 
@@ -107,12 +135,12 @@ export default Vue.extend({
           build_scene ( bot, scene_data ) {
             let scene = new Telegraf.BaseScene( scene_data.id )
 
-            console.log(scene_data)
 
             let commands = this.build_commands( scene, scene_data.commands )
             let events = this.build_events( scene, scene_data.events )
             let hear_data = this.build_hears( scene, scene_data.hears )
             let action_data = this.build_actions( scene, scene_data.actions )
+            // let scenes_data = this.build_scenes( scene, scene_data.scenes )
 
             scene.enter((ctx) => ctx.reply('Hi'))
 
@@ -124,7 +152,6 @@ export default Vue.extend({
             let result = null
           
             forEach( commands, ( data, index )=>{
-              console.log(12,data.id, this.build_callback( data.cb ))
               ctx.command( data.id, this.build_callback( data.cb ) )
 
             } )
@@ -150,7 +177,6 @@ export default Vue.extend({
             if ( !hear_data ) return
             let result = null
 
-            console.log("hears data", ctx, hear_data)
           
             forEach( hear_data, ( data, index )=>{
               ctx.hears( new RegExp( data.text, "igm" ), this.build_callback( data.cb ) )
@@ -162,50 +188,93 @@ export default Vue.extend({
             if ( !action_data ) return
             let result = null
 
-            console.log("actions data", action_data)
           
             forEach( action_data, ( data, index )=>{
-              ctx.action( new RegExp( data.id, "gm" ), this.build_callback( data.cb ))
+              let smart_value = this.is_smart_value( data.text )
+              let action_id = smart_value.type === "parse/regexp" ? new RegExp( smart_value.arg, "igm" ) : data.text
+              let callback = this.build_callback( data.cb )
+
+              ctx.action( action_id, (ctx)=>{
+                callback( ctx )
+              })
             } )
           },
 
           is_smart_value ( config ) {
-            if (typeof config !== "string") return false
             let result = false
             let smart_values = [
               ["reply/text", "@reply:"],
               ["reply/html", "@reply-html:"],
-              ["scene/leave","@scene-leave"],
+              ["scene/leave","@leave-scene"],
               ["scene/enter","@scene:"],
               ["reply/help","(@help:|@help)"],
               ["answer/cb-query/text","(@answer:|@answer)"],
               ["debug/log","(@log:|@log)"],
               ["code/eval","(@code:|@code)"],
+              ["set/user/prompt", "@prompt:"],
+              ["system/eval", "@eval:"],
+              ["keyboard/inline", "@inline-keyboard:"],
+              ["system/eval", "@eval:"],
+              ["system/wait", "@wait"],
+              ["parse/regexp", "@regexp:"],
             ]
 
-            let smart_value = find( smart_values, ( data )=> config.match(new RegExp( data[1] )) )
+            let smart_value = null
 
-            if ( smart_value ) {
-              let type = smart_value[0]
-              let arg = config.split(":")[1]
+            if ( isString( config ) ) {
+              smart_value = find( smart_values, ( data )=> config.match(new RegExp( data[1] )) )
 
-              result = {
-                type, arg
-              }
-            }
+              if ( smart_value ) {
+                let type = smart_value[0]
+                let arg = config.split(":")[1]
 
-            return result
+                result = {
+                  type, arg
+                }
+              } 
+            }  
+
+           return result
 
           },
 
           build_callback ( config ) {
+
+            if ( isArray( config ) ) {
+              let callbacks = []
+
+              forEach( config, ( cb_data, index )=>{
+                callbacks.push( this.build_callback( cb_data ) )
+              } )
+
+              return ( ctx ) => {
+                forEach( callbacks, ( callback, index )=>{
+                  setTimeout( ()=>{
+                    callback( ctx )
+                  }, index * this.reply_timeout )
+                } )
+              }
+            }
+
             let smart_value = this.is_smart_value( config ) 
-            let result = ()=> { console.log( `mockup for: ${ JSON.stringify( config ) }` ) }
+            let result = ()=> { 
+            }
 
             if ( smart_value ) {
               // this.log(`smart-value: ${ smart_value.type } - ${smart_value.arg }`)
 
               switch ( smart_value.type ) {
+                case "system/wait":
+                  result = ( ctx ) => { 
+                    this.log("waiting...")
+                  }
+                  break;
+                case "system/eval":
+                  result = ( ctx ) => { 
+                    this.log("evaluating value...")
+                    this.eval( smart_value.arg, ctx )
+                  }
+                  break;
                 case "scene/enter":
                   result = ( ctx ) => { 
                     this.log("entering scene...")
@@ -220,7 +289,6 @@ export default Vue.extend({
                   break;
                 case "reply/text":
                   result = ( ctx ) => { 
-                    console.log(ctx)
                     this.log("reply/text")
                     this.send_text( ctx.from.id, this.apply_template( ctx, smart_value.arg ) )
                    }
@@ -228,13 +296,11 @@ export default Vue.extend({
                 case "reply/html":
                   result = ( ctx ) => { 
                     this.log("reply/html")
-                    console.log(ctx)
                     this.send_text( ctx.from.id, this.apply_template( ctx, smart_value.arg ) )
                    }
                   break;
                 case "reply/help":
                   result = ( ctx ) => { 
-                    console.log(ctx)
                     this.log("reply/help")
                     this.send_help( ctx )
                    }
@@ -251,19 +317,86 @@ export default Vue.extend({
                     this.log( `@log: ${ this.apply_template( ctx, smart_value.arg ) }`, "recieved" )
                    }
                   break;
-                 case "code/eval":
-                  result = ( ctx ) => { 
-                    this.log(`code/eval`, "system")
-                    this.eval(smart_value.arg, ctx)
-                   }
-                  break;
+                case "set/user/prompt":
+                  result = ( ctx ) => {
+
+                  }
+                break;
+                case "keyboard/inline":
+                  let tokens = smart_value.arg.split(";")
+                  let button_data = {}
+                  let text = "..."
+                  let config = null
+
+                  forEach( tokens, ( token, index )=>{
+                    if ( token.trim().split("=")[0] === "$caption" ){
+                      text = token.trim().split("=")[1]
+                      return
+                    }
+
+                    if ( token.trim().split("=")[0] === "$config" ){
+                      config = token.trim().split("=")[1]
+                      return
+                    }
+
+
+                    button_data[ token.trim().split("=")[0] ] = token.trim().split("=")[0]
+                  } )
+
+
+                  
+                  
+                  result = ( ctx )=>{
+                    if ( config ) {
+                      button_data = merge( this.eval( config, ctx ), button_data )
+                    }
+
+                    
+                    let inline_keyboard = this.create_inline_keyboard( button_data )
+                    this.send_text( ctx.from.id, this.apply_template( ctx, text ), inline_keyboard.extra() )
+                  }
+                break;
+              }
+            } else {
+              if ( isString( config.branch ) ) {
+                return this.build_branch_callback( config )
               }
             }
 
 
 
             return result
+          },
+
+
+          build_branch_callback( config ) {
+            let callbacks = {}
+            let default_value = !isUndefined( config.default ) ? config.default : undefined
+
+            forEach( config, ( cb, test_value )=>{
+              set( callbacks, `string.${ test_value }`, [] )
+              let cbs = get( callbacks, `string.${ test_value }` )
+              if (  !test_value.match(/(branch|default)/ ) ) {
+                cbs.push( this.build_callback( cb ) )
+              }
+            } )
+
+            return ( ctx )=>{
+              let user_value = this.get_user_value( ctx, config.branch )
+
+              if ( isUndefined( user_value ) && !isUndefined( default_value ) ){
+                user_value = default_value
+              }
+
+              forEach( config, ( cb, test_value )=>{
+                if ( test_value === user_value && !test_value.match(/(branch|default)/) ) {
+                  let cbs = get( callbacks, `string.${ test_value }` )
+                  forEach( cbs, callback => callback( ctx ) ) 
+                }
+              } )
+            }
           }
+
         }
 })
 </script>

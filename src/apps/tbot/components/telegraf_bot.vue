@@ -5,6 +5,7 @@
 >
   <logger 
     ref="logger"
+    class="telegraf_bot_logger"
   />
 </program_wrapper>
         
@@ -20,10 +21,27 @@ import set from "lodash/set"
 import forEach from "lodash/forEach"
 import isArray from "lodash/isArray"
 import isString from "lodash/isString"
+import isNumber from "lodash/isNumber"
 import isObject from "lodash/isObject"
-import keys from "lodash/keys"
 import unset from "lodash/unset"
+import map from "lodash/map"
+import find from "lodash/find"
 import logger from "./logger"
+import debounce from "lodash/debounce"
+import merge from "lodash/merge"
+import chunk from "lodash/chunk"
+import toPairs from "lodash/toPairs"
+import keys from "lodash/keys"
+import values from "lodash/toPairs"
+
+let lodash_map = map
+let lodash_find = find
+let lodash_merge = merge
+let lodash_chunk = chunk
+let lodash_toPairs = toPairs
+let lodash_keys = keys
+let lodash_values = toPairs
+
 
 export default Vue.extend({
   name: "bot",
@@ -33,9 +51,7 @@ export default Vue.extend({
   data () {
     return {
       extra_commands: [
-        "start",
         "help",
-        "commands",
         "me",
         "userscount"
       ],
@@ -53,7 +69,10 @@ export default Vue.extend({
     this.read_temp()
     let bot = this.bot = new Telegraf(this.BOT_API_TOKEN)
 
-    bot.use(Telegraf.log())
+    this.save_temp = debounce(()=>{
+      this.log(`saving datatabase file (${this.database_file})`, "system")
+      action_manager.write_json( this.database_file, this.database_object )
+    }, 2000)
     
     /*test*/
 
@@ -72,7 +91,7 @@ export default Vue.extend({
     //       input_message_content: {
     //         message_text: title
     //       },
-    //       reply_markup: Markup.inlineKeyboard([
+    //       reply_markup: Markup.this.create_inline_keyboard([
     //         Markup.urlButton('Go to recipe', href)
     //       ])
     //     }))
@@ -80,13 +99,11 @@ export default Vue.extend({
     // })
 
     // bot.on('chosen_inline_result', ({ chosenInlineResult }) => {
-    //   console.log('chosen inline result', chosenInlineResult)
     // })
 
     // bot.command('pyramid', (ctx) => {
     //   let extra = Telegraf.Extra.HTML()
      
-    //   console.log(extra)
     //   return ctx.reply('<b>Keyboard</b> <i>wrap</i>', extra )
     // })
 
@@ -96,35 +113,32 @@ export default Vue.extend({
 
     // bot.command('inline', (ctx) => {
     //   return ctx.reply('<b>Coke</b> or <i>Pepsi?</i>', Telegraf.Extra.HTML().markup((m) => {
-    //     m.inlineKeyboard([
+    //     m.this.create_inline_keyboard([
     //       m.callbackButton('Coke', 'lol'),
     //       m.callbackButton('Pepsi', 'kek'),
     //     ])
 
-    //     console.log(m)
 
     //     return m
     //   }))
     // })
 
     // bot.command('random', (ctx) => {
-    //   let extra = Telegraf.Markup.inlineKeyboard([
+    //   let extra = Telegraf.Markup.Extra.inlineKeyboard([
     //     Telegraf.Markup.callbackButton('Coke', 'lol'),
     //     Telegraf.Markup.callbackButton('Pepsi', 'kek'),
     //   ]).extra();
 
-    //   console.log( extra )
       
     //   return ctx.reply('<b>Coke</b> or <i>Pepsi?</i>', extra)
     // })
 
     // bot.command('caption', (ctx) => {
-    //   console.log()
     //   return ctx.replyWithPhoto({ url: 'https://picsum.photos/200/300/?random' },
     //     Telegraf.Extra.load({ caption: 'Caption' })
     //       .markdown()
     //       .markup((m) => {
-    //         m.inlineKeyboard([
+    //         m.this.create_inline_keyboard([
     //           m.callbackButton('Plain', 'plain'),
     //           m.callbackButton('Italic', 'italic'),
     //           m.callbackButton('Italic', 'italic'),
@@ -133,7 +147,6 @@ export default Vue.extend({
     //           m.callbackButton('Italic', 'italic')
 
     //         ])
-    //         console.log(m)
     //         return m;
 
 
@@ -145,7 +158,6 @@ export default Vue.extend({
     /*!test*/
     this.log("init commands...", "system");
     this.commands_prop.concat(this.extra_commands).forEach((item, index)=>{
-      console.log(item)
       this.bot.command(item, this.on_command)
     })
 
@@ -176,15 +188,33 @@ export default Vue.extend({
       })
     },
     get_user_data ( telegraf_ctx ) {
-        this.log("requested self data", "command")
+        this.log("requested self data", "user_data")
         let loaded_user_data = this.get_temp( `users.id_${ telegraf_ctx.from.id }` )
 
         if ( !loaded_user_data ) {
-          loaded_user_data = this.update_user_data( telegraf_ctx )
+          loaded_user_data = this.resolve_user_data( telegraf_ctx )
         }
         return loaded_user_data
     },  
-    update_user_data ( telegraf_ctx ) {
+    get_user_value ( telegraf_ctx, prop_path ) {
+      this.log("getting user data", "user_data")
+      let user_data = this.get_user_data( telegraf_ctx )
+      let value = get( user_data, `bot_data.${ prop_path }` )
+      return value
+    },
+    set_user_value ( telegraf_ctx, prop_path, value ) {
+      this.log("setting user data", "user_data")
+      let user_data = this.get_user_data( telegraf_ctx )
+      set( user_data, `bot_data.${ prop_path }`, value )
+      this.set_temp( `users.id_${telegraf_ctx.from.id}`, user_data )
+    },
+    unset_user_value( telegraf_ctx, prop_path ) {
+      this.log("unsetting user data", "user_data")
+      let user_data = this.get_user_data( telegraf_ctx )
+      unset( user_data, `bot_data.${ prop_path }` )
+      this.set_temp( `users.id_${telegraf_ctx.from.id}`, user_data )
+    },
+    resolve_user_data ( telegraf_ctx ) {
       if ( this.get_temp( `users.id_${ telegraf_ctx.from.id }` ) ) {
         return this.get_temp( `users.id_${ telegraf_ctx.from.id }` )
       }
@@ -198,18 +228,15 @@ export default Vue.extend({
         language_code: telegraf_ctx.from.language_code,
       }
 
-      this.log("creating user data...", "system")
-      console.log(user_data)
+      this.log("creating user data...", "user_data")
       this.set_temp( `users.id_${telegraf_ctx.from.id}`, user_data )
       return user_data
     } , 
     save_temp () {
-      this.log("saving datatabase file...", "system")
-      console.log(this.database_file)
-      action_manager.write_json( this.database_file, this.database_object )
+      
     },
     read_temp () {
-      this.log("reading datatabase file...", "system")
+      this.log(`reading datatabase file (${this.database_file})`, "system")
       this.database_object = action_manager.read_json( this.database_file )
       return this.database_object
     },
@@ -222,6 +249,11 @@ export default Vue.extend({
       this.log(`reading datatabase data ${ path }`, "system")
       return get( this.database_object, path )
     },
+    unset_temp ( path ) {
+      this.log(`unsetting datatabase data (${path}, ${value})`, "system")
+      unset( this.database_object, path );
+      this.save_temp()
+    }, 
     init_events () {
       let bot = this.bot
       bot.on("update", this.on_update)
@@ -252,11 +284,9 @@ export default Vue.extend({
     },
     /**callbacks */
     on_message ( telegraf_ctx ) {
-      console.log(telegraf_ctx.message, telegraf_ctx.from)
       let message_type = this.get_message_type( telegraf_ctx );
-      console.log(`Message type:`, message_type)
       this.log(`recieved message from ${this.get_full_contact_name(telegraf_ctx.from)} - "${ this.get_short_message(telegraf_ctx.message.text, 16) }"`, "recieved")
-      this.update_user_data( telegraf_ctx )
+      this.resolve_user_data( telegraf_ctx )
       
     },
     on_text ( telegraf_ctx ) {
@@ -283,7 +313,7 @@ export default Vue.extend({
         let user_data = this.get_user_data ( telegraf_ctx );
         telegraf_ctx.replyWithHTML( `You are <i>${user_data.first_name} ${user_data.last_name}</i>`, this.object_to_markup( user_data, null, "\t" ) )
       } else if ( "start" === command_name ) {
-        this.update_user_data( telegraf_ctx )
+        this.resolve_user_data( telegraf_ctx )
       } else if ( "userscount" === command_name ) {
         telegraf_ctx.replyWithHTML( `👤 👤 👤\nКоличество пользователей: <b>${ this.get_users_count() }</b>` )
       }
@@ -298,14 +328,17 @@ export default Vue.extend({
     },
     /*sending*/
     send_help ( telegraf_ctx ) {
-      console.log( telegraf_ctx )
       telegraf_ctx.replyWithHTML(`<b>Availabale commands:</b>\n${ this.object_to_string( this.commands_prop.concat(this.extra_commands), ( key, value )=>{
         return `/${ value }\n`
       } ) }`)
     },
-    send_text ( chat_id, text ) {
+    send_text ( chat_id, text, extra ) {
+      if ( isNumber(text) ) text = text.toString()
       this.log(`sending message to ${ chat_id } - "${this.get_short_message(text)}"`, "sending")
-      this.bot.telegram.sendMessage( chat_id, text, Telegraf.Extra.HTML() )
+      if ( extra ) extra.parse_mode = "HTML"
+      if ( extra && extra.text ) text = extra.text
+      if ( text.length === 0 ) text = "...";
+      this.bot.telegram.sendMessage( chat_id, text, extra || Telegraf.Extra.HTML() )
     },
     send_photo ( chat_id, image_data ) {
       this.log(`sending image to ${ chat_id } - "${image_data.url}"`, "sending")
@@ -375,7 +408,6 @@ export default Vue.extend({
       return result
     },
     object_to_markup ( object ) {
-      console.log(this.object_to_pairs( object ))
       return Telegraf.Markup.keyboard( (this.object_to_pairs( object )) )
       .oneTime()
       .resize()
@@ -394,27 +426,43 @@ export default Vue.extend({
     },
     apply_template ( telegraf_ctx, string ) {
       let result = this.eval(`
-        let template = result = \`${ string }\`;
+        \`${ string }\`;
       `, telegraf_ctx)
+
+      console.log(113, result)
 
       return result  
 
     },
 
     eval ( post_code, telegraf_ctx ) {
-      console.log("message type: ", this.get_message_type( telegraf_ctx ));
-
+      let result
       let code = `
-        let get_fullname = ()=>{ return this.get_full_contact_name( telegraf_ctx.from ) };
-        let emoji = this.emoji_list;
+        let timestamp = "t_" + (new Date()).toString()
+        let data = this.scenario_data.data || {}
         let msg = telegraf_ctx.message;
+        let emoji = this.emoji_list;
         let msg_type;
+        let map = lodash_map;
+        let find = lodash_find;
+        let chunk = lodash_chunk;
+        let merge = lodash_merge;
+        let to_pairs = lodash_toPairs;
+        let keys = lodash_keys;
+        let values = lodash_values;
+        let match = telegraf_ctx.match ? telegraf_ctx.match.input : ""
+        let get_fullname = ()=>{ return this.get_full_contact_name( telegraf_ctx.from ) };
+        let set = ( p, v ) => { return this.set_user_value( telegraf_ctx, p, v ) };
+        let unset = ( p, v ) => { return this.unset_user_value( telegraf_ctx, p ) };
+        let get = ( p, v ) => { return this.get_user_value( telegraf_ctx, p ) };
+        let reply = ( message, extra )=> { this.send_text( telegraf_ctx.from.id, message, extra ) }
+        let log = ( d )=> console.log( 'eval log', d );
 
         if (msg) {
           msg_type = ( msg.sticker !== undefined ? "sticker" : "default");
         }
         
-        let userdata = function(){ 
+        let userdata = function(){  
           if ( arguments.length > 0 ) {
 
           } else {
@@ -429,64 +477,91 @@ export default Vue.extend({
 
         ${post_code}
       `
-      let result = null
-      eval(code)
-      // // try {
-      // //   eval(code)
-      // // } catch ( err ) {
-      // //   console.error("Evaluating property failed: ", err);
+
+
+      result = eval(code)
+      
+      // try {
+      // } catch ( err ) {
+      //   console.error("Evaluating property failed: ", err);
       // }
 
       return result
     },
     /*markup*/
-    inline_kb_list ( data ) {
+    create_inline_keyboard ( data ) {
       let kb_data = []
+
+      console.log(data)
 
       if ( isArray( data ) ) {
         forEach(data, ( item_data, item_id )=>{
-          kb_data.push( Telegraf.Markup.callbackButton( item_data, item_data ) )
+          if ( isArray( item_data ) ) {
+            let buttons = []
+            forEach( item_data, ( data, id )=>{
+              buttons.push( Telegraf.Markup.callbackButton( data, data ) )
+            } )
+            kb_data.push( buttons )
+            return
+          }
+          kb_data.push( [Telegraf.Markup.callbackButton( item_data, item_data )] )
         })
       } else {
         forEach(data, ( item_data, item_id )=>{
-          kb_data.push( Telegraf.Markup.callbackButton( item_data, item_id ) )
+          if ( isArray( item_data ) ) {
+            let buttons = []
+            forEach( item_data, ( data, id )=>{
+              buttons.push( Telegraf.Markup.callbackButton( data, data ) )
+            } )
+            kb_data.push( buttons )
+            return
+          }
+          kb_data.push( [Telegraf.Markup.callbackButton( item_data, item_data )] )
         })
       }
 
-      return Telegraf.Markup.inlineKeyboard( kb_data ).extra()
+      console.log(kb_data)
+
+      return Telegraf.Markup.inlineKeyboard( kb_data )
     }
   }
 })
 </script>
 <style lang="less">
-  .bot {
+  .telegraf_bot {
    
     .logger {
       .item {
         &[data-type="sending"] {
-          color: #ff6a9a;
+          color: #33259e;
+          background: #ce9cff;
         }
 
         &[data-type="command"] {
-          color: #6ae3ff;
+          color: #00586d;
+          background: #8cdaff;
         }
 
         &[data-type="action"] {
           color: #6ae3ff;
         }
 
-         &[data-type="recieved"] {
-          color: #6aff83;
+        &[data-type="recieved"] {
+          color: #710268;
+          background: #cea4f9;
         }
 
         &[data-type="system"] {
-          color: #ff5722;
+          color: #444444;
+          background: #d0d0d0;
+        }
+
+        &[data-type="user_data"] {
+          color: #8c6f00;
+          background: #ffd473;
         }
       }
     }
 
-    .bot_info {
-      
-    }
   }
 </style>
