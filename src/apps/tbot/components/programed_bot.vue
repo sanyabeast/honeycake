@@ -1,12 +1,24 @@
 <template>
-<program_wrapper
-  title="Telegraf Bot"
-  class="telegraf_bot"
+<ProgramWrapper
+  title="Programed Bot"
+  class="programed_bot telegraf_bot"
+  grid_template_prop="1fr 1fr / 1fr"
 >
   <logger 
+    title="Events Log"
     ref="logger"
   />
-</program_wrapper>
+  <ProgramWrapper
+    title="Storage Monitor"
+    class="telegraf_bot_logger"
+  >
+    <Logger 
+      title="Events Log"
+      ref="storage_monitor_logger"
+      
+    />
+  </ProgramWrapper>
+</ProgramWrapper>
 </template>
 
 <script lang="js">
@@ -31,6 +43,7 @@ import isNull from "lodash/isNull"
 import isObject from "lodash/isObject"
 import merge from "lodash/merge"
 import chunk from "lodash/chunk"
+import isFunction from "lodash/isFunction"
 
 export default Vue.extend({
         name: "programed_bot",
@@ -43,7 +56,7 @@ export default Vue.extend({
           },
           reply_timeout: {
             type: Number,
-            default () { return 333 }
+            default () { return 200 }
           }
         },
         data () {
@@ -80,7 +93,7 @@ export default Vue.extend({
           },
           build_scenario ( bot, scenario_data ) {
  
-            scenario_data.data = smart_values_manager.resolve_value( scenario_data.data )
+            this.evalwizard_vars.data = scenario_data.data = smart_values_manager.resolve_value( scenario_data.data, this )
 
             let scenes = this.build_scenes( bot, scenario_data.scenes )
             let stage = this.build_stage( bot, scenes )
@@ -107,7 +120,7 @@ export default Vue.extend({
             let scenes = []
 
             forEach( scenes_data, ( scene_data, index )=>{
-              scene_data = smart_values_manager.resolve_value( scene_data )
+              scene_data = smart_values_manager.resolve_value( scene_data, this )
               if ( isArray( scene_data ) ) {
                 scenes = scenes.concat( this.build_scenes( bot, scene_data ) )
               } else if ( isObject( scene_data ) ) {
@@ -165,7 +178,7 @@ export default Vue.extend({
 
           
             forEach( action_data, ( data, index )=>{
-              let action_id = smart_values_manager.resolve_value( data.text )
+              let action_id = smart_values_manager.resolve_value( data.text, this )
               let callback = this.build_callback( data.cb )
 
               ctx.action( action_id, (ctx)=>{
@@ -187,13 +200,21 @@ export default Vue.extend({
 
               return ( ctx ) => {
                 forEach( callbacks, ( callback, index )=>{
+                  // callback( ctx )
                   setTimeout( ()=>{
                     callback( ctx )
                   }, index * this.reply_timeout )
                 } )
               }
             }
-            return $config.bind( this )
+
+            if ( isFunction( $config ) ) {
+              return $config.bind(this)
+            } else {
+              console.log(new Error('unable to build callback'), config)
+              return ()=>{}
+            }
+
           },
         }
 })

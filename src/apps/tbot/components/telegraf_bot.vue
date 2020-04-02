@@ -1,20 +1,30 @@
 <template>
-<program_wrapper
+<ProgramWrapper
   title="Telegraf Bot"
   class="telegraf_bot"
+  
 >
   <logger 
+    title="Events Log"
     ref="logger"
-    class="telegraf_bot_logger"
   />
-</program_wrapper>
-        
+  <ProgramWrapper
+    title="Storage Monitor"
+    class="storage_monitor"
+  >
+    <Logger 
+      title="Events Log"
+      ref="storage_monitor_logger"
+      
+    />
+  </ProgramWrapper>
+</ProgramWrapper>
 </template>
 
 <script lang="js">
 
 import EvalWizard from "apps/default/lib/evalwizard"
-import program_wrapper from "apps/tbot/components/program_wrapper"
+import ProgramWrapper from "apps/tbot/components/program_wrapper"
 import Vue from "vue"
 import transform from "lodash/transform"
 import get from "lodash/get"
@@ -27,13 +37,14 @@ import isObject from "lodash/isObject"
 import unset from "lodash/unset"
 import map from "lodash/map"
 import find from "lodash/find"
-import logger from "./logger"
+import Logger from "./logger"
 import debounce from "lodash/debounce"
 import merge from "lodash/merge"
 import chunk from "lodash/chunk"
 import toPairs from "lodash/toPairs"
 import keys from "lodash/keys"
-import values from "lodash/toPairs"
+import values from "lodash/values"
+import sum from "lodash/sumBy"
 
 
 let lodash_map = map
@@ -48,11 +59,12 @@ let lodash_values = toPairs
 export default Vue.extend({
   name: "bot",
   mixins: [],
-  components: { logger, program_wrapper },
+  components: { Logger, ProgramWrapper },
   props: ["BOT_API_TOKEN", "commands_prop", "database_file"],
   data () {
     return {
       evalwizard_vars: {
+        data: null,
         ctx: null,
         map,
         find,
@@ -61,9 +73,14 @@ export default Vue.extend({
         to_pairs: toPairs,
         keys,
         values,
+        sum,
         log: ( d )=> console.log( 'eval log', d ),
         set_temp: ( p, v )=> this.set_temp( p, v ),
-        get_temp: ( p )=> this.get_temp( p )
+        get_temp: ( p )=> this.get_temp( p ),
+        only_letters: ( string )=> string.match(/[a-zA-Zа-яА-Я\s]+/gm)[0] || "...",
+        only_number: ( string )=> string.match(/\d+(\.|)+(\d+|)/)[0] || 0,
+        split: ( string, sep, index )=> string.split(sep)[index],
+        num: ( val ) => Number( val )
       },
       extra_commands: [
         "help",
@@ -90,7 +107,7 @@ export default Vue.extend({
       intermediate_code: `
         this.log("telegraf bot...");
 
-        let timestamp = "t_" + (new Date()).toString()
+        let timestamp = "t_" + (+new Date()).toString()
         let msg = ctx.message;
         let from = ctx.from;
         let userdata = ()=> this.get_user_data( ctx );
@@ -113,10 +130,10 @@ export default Vue.extend({
     }, 2000)
 
     /*!test*/
-    this.log("init commands...", "system");
-    this.commands_prop.concat(this.extra_commands).forEach((item, index)=>{
-      this.bot.command(item, this.on_command)
-    })
+    // this.log("init commands...", "system");
+    // this.commands_prop.concat(this.extra_commands).forEach((item, index)=>{
+    //   this.bot.command(item, this.on_command)
+    // })
 
     
     if ( this.auto_launch ) {
@@ -150,6 +167,9 @@ export default Vue.extend({
         } ) )
       })
     },
+    update_storage_monitor_data ({ scope, prop, direction, user, value } ) {
+      this.$refs.storage_monitor_logger.log( `${scope} | ${ user || "..." } | ${ direction === 1? "READ" : "WRTE" } | ${ prop || "..." } | ${ value || "..." }` )
+    },
     get_user_data ( telegraf_ctx ) {
         this.log("requested self data", "user_data")
         let loaded_user_data = this.get_temp( `users.id_${ telegraf_ctx.from.id }` )
@@ -161,12 +181,14 @@ export default Vue.extend({
     },  
     get_user_value ( telegraf_ctx, prop_path ) {
       this.log("getting user data", "user_data")
+      this.update_storage_monitor_data({ scope: "user", user: this.resolve_user_caption(telegraf_ctx), prop: prop_path, direction: 1 })
       let user_data = this.get_user_data( telegraf_ctx )
       let value = get( user_data, `bot_data.${ prop_path }` )
       return value
     },
     set_user_value ( telegraf_ctx, prop_path, value ) {
       this.log("setting user data", "user_data")
+      this.update_storage_monitor_data({ scope: "user", user: this.resolve_user_caption(telegraf_ctx), prop: prop_path, value: value, direction: -1 })
       let user_data = this.get_user_data( telegraf_ctx )
       set( user_data, `bot_data.${ prop_path }`, value )
       this.set_temp( `users.id_${telegraf_ctx.from.id}`, user_data )
@@ -176,6 +198,9 @@ export default Vue.extend({
       let user_data = this.get_user_data( telegraf_ctx )
       unset( user_data, `bot_data.${ prop_path }` )
       this.set_temp( `users.id_${telegraf_ctx.from.id}`, user_data )
+    },
+    resolve_user_caption ( telegraf_ctx ) {
+      return telegraf_ctx.from.username || telegraf_ctx.from.id
     },
     resolve_user_data ( telegraf_ctx ) {
       if ( this.get_temp( `users.id_${ telegraf_ctx.from.id }` ) ) {
@@ -266,20 +291,7 @@ export default Vue.extend({
         telegraf_ctx
       })
 
-      let command_name = telegraf_ctx.message.text.replace(/\//gm, "")
 
-      if ( "commands" === command_name ) {
-        this.send_help( telegraf_ctx )
-      } else if ( "help" === command_name ) {
-        this.send_help( telegraf_ctx )
-      } else if ( "me" === command_name ) {
-        let user_data = this.get_user_data ( telegraf_ctx );
-        telegraf_ctx.replyWithHTML( `You are <i>${user_data.first_name} ${user_data.last_name}</i>`, this.object_to_markup( user_data, null, "\t" ) )
-      } else if ( "start" === command_name ) {
-        this.resolve_user_data( telegraf_ctx )
-      } else if ( "userscount" === command_name ) {
-        telegraf_ctx.replyWithHTML( `👤 👤 👤\nКоличество пользователей: <b>${ this.get_users_count() }</b>` )
-      }
     },
     on_action ( telegraf_ctx ) {
       this.log(`action "${  telegraf_ctx.message.text.replace(/\//gm, "") }" from ${ telegraf_ctx.from.first_name } ${telegraf_ctx.from.last_name}`, "action")
@@ -396,28 +408,73 @@ export default Vue.extend({
           if ( isArray( item_data ) ) {
             let buttons = []
             forEach( item_data, ( data, id )=>{
-              buttons.push( Telegraf.Markup.callbackButton( data, data ) )
+              let split = data.split("@@")
+              let action_id 
+              let action
+
+              if ( split.length > 1 ) {
+                action_id = split[0]
+                action = split[1]
+              } else {
+                action_id = action = data
+              }
+
+              buttons.push( Telegraf.Markup.callbackButton( action_id, action ) )
             } )
             kb_data.push( buttons )
             return
           }
-          kb_data.push( [Telegraf.Markup.callbackButton( item_data, item_data )] )
+
+          let split = item_data.split("@@")
+          let action_id 
+          let action
+
+          if ( split.length > 1 ) {
+            action_id = split[0]
+            action = split[1]
+          } else {
+            action_id = action = item_data
+          }
+
+
+          kb_data.push( [Telegraf.Markup.callbackButton( action_id, action )] )
         })
       } else {
         forEach(data, ( item_data, item_id )=>{
           if ( isArray( item_data ) ) {
             let buttons = []
             forEach( item_data, ( data, id )=>{
-              buttons.push( Telegraf.Markup.callbackButton( data, data ) )
+              let split = data.split("@@")
+              let action_id 
+              let action
+
+              if ( split.length > 1 ) {
+                action_id = split[0]
+                action = split[1]
+              } else {
+                action_id = action_id = data
+              }
+
+
+              buttons.push( Telegraf.Markup.callbackButton( action_id, action ) )
             } )
             kb_data.push( buttons )
             return
           }
-          kb_data.push( [Telegraf.Markup.callbackButton( item_data, item_data )] )
+          let split = item_data.split("@@")
+          let action_id 
+          let action
+
+          if ( split.length > 1 ) {
+            action_id = split[0]
+            action = split[1]
+          } else {
+            action_id = action = item_data
+          }
+
+          kb_data.push( [Telegraf.Markup.callbackButton( action_id, action )] )
         })
       }
-
-      console.log(kb_data)
 
       return Telegraf.Markup.inlineKeyboard( kb_data )
     }
@@ -428,6 +485,17 @@ export default Vue.extend({
   .telegraf_bot {
    
     .logger {
+      background: linear-gradient(90deg, #986262 0%, #bb907b 100%);
+
+      .header {
+        background: #d42f2f!important;
+        color: wheat!important;
+      }
+
+      .container {
+        background: #f5e6bb!important;
+        color: wheat!important;
+      }
       .item {
         &[data-type="sending"] {
           color: #33259e;
@@ -456,6 +524,25 @@ export default Vue.extend({
         &[data-type="user_data"] {
           color: #8c6f00;
           background: #ffd473;
+        }
+      }
+    }
+
+    .storage_monitor {
+      .header {
+        background: #008654!important;
+        color: #eee!important;
+      }
+
+      .container {
+        background: #00435d!important;
+      }
+
+      .content {
+        > div {
+          display: flex;
+          align-items: center;
+          justify-self: center;
         }
       }
     }

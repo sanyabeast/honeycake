@@ -40,32 +40,23 @@ class EvalWizard {
 
         cache_id = `${ret_code}@@@${vars_id}`
 
-        if ( isFunction( this.cache[ cache_id ] ) ) {
-            this.log("getting function from cache")
+        if ( false && isFunction( this.cache[ cache_id ] ) ) {
             func = this.cache[ cache_id ]
         } else {
             let code = `
                 func = function( { ${ vars_id } } ) {
                     
-                    try {
-                        ${ this.params.intermediate_code }
+                    ${ this.params.intermediate_code }
                         return ${ ret_code }
-                    } catch  ( err ) {
-                        this.log(err)
-                        return null
-                    }
                 }
             
             `
             
             eval(code)
-            console.log(func)
             this.cache[ cache_id ] = func
         }
         
-        let result = func.call( this.params.context, vars )
-        this.log(`executed in ${ +new Date() - start_date }ms`)
-        return result
+        return func.call( this.params.context, vars )
         
     }
 

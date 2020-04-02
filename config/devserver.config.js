@@ -6,7 +6,7 @@ module.exports = env=>{
 	return {
 		contentBase: path.join(CWD, 'dist'),
 		compress: true,
-		port: 9000,
+		port: 9009,
 		host: "localhost",
 		hot: true,
 		historyApiFallback: true,

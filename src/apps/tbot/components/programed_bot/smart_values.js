@@ -81,6 +81,11 @@ class SmartValues {
             {
                 test: "@inline-keyboard",
                 factory: ( config ) => {
+                    if ( !config.arg ) {
+                        return ( ctx )=>{
+                            ctx.reply("invalid inline-keboard")
+                        }
+                    }
                     let tokens = config.arg.split(";")
                     let button_data = {}
                     let text = "..."
@@ -88,12 +93,12 @@ class SmartValues {
 
                     forEach( tokens, ( token, index )=>{
                         if ( token.trim().split("=")[0] === "$caption" ){
-                        text = token.trim().split("=")[1]
+                        text = token.trim().split(/=(.+)/sgm)[1]
                         return
                         }
 
                         if ( token.trim().split("=")[0] === "$config" ){
-                            kb_config = token.trim().split("=")[1]
+                            kb_config = token.trim().split(/=(.+)/sgm)[1]
                         return
                         }
 
@@ -102,11 +107,11 @@ class SmartValues {
                     } )
 
                     return function ( ctx ) {
+
                         if ( kb_config ) {
-                            button_data = merge( this.eval( kb_config, ctx ), button_data )
                         }
                         
-                        let inline_keyboard = this.create_inline_keyboard( button_data )
+                        let inline_keyboard = this.create_inline_keyboard( merge( this.eval( kb_config, ctx ), button_data ) )
                         this.send_text( ctx.from.id, this.apply_template( text, ctx ), inline_keyboard.extra() )
                     }
                 }
@@ -144,6 +149,26 @@ class SmartValues {
                 }  
             },
             {
+                test: ( data )=> isObject( data ) && data.$type === "ifelse",
+                factory ( config ) {
+                    let params = config.arg
+                    let pos_cb = this.build_callback( params.positive )
+                    let neg_cb = this.build_callback( params.negative )
+
+                    return function ( ctx ) {
+                        let value = this.eval( params.value, ctx ) 
+
+
+                        if ( value === true ) {
+                            pos_cb( ctx )
+                        } else {
+                            neg_cb( ctx )
+                        }
+                    }
+                }
+            },
+            /*dialog scene*/
+            {
                 test: ( data ) => isObject( data ) && data.$type === "dialog_scene",
                 factory ( config ) {
                     let params = config.arg
@@ -169,7 +194,6 @@ class SmartValues {
 
                     if ( params.pins ) {
                         forEach( params.pins, ( callback_data, button_caption )=>{
-                            console.log(button_caption)
                             buttons_data.push( button_caption )
                             retval.actions.push({
                                 text: button_caption,
@@ -215,7 +239,7 @@ class SmartValues {
 
         if ( smart_value ) {
             if ( isString( data ) ) {
-                let arg = data.split(":")[1] || null
+                let arg = data.split(/:(.+)/sgm)[1] || null
                 return {
                     ...smart_value,
                     arg

@@ -1,6 +1,6 @@
 <template>
   <program_wrapper
-    title="Logger"
+    :title="title"
     class="logger"
     ref="program_wrapper"
   >
@@ -36,7 +36,12 @@ export default Vue.extend({
         name: "logger",
         mixins: [],
         components: { program_wrapper, list },
-        props: {},
+        props: {
+          title: {
+            type: String,
+            default () { return "Logger" }
+          }
+        },
         data () {
           return {
             state: {
