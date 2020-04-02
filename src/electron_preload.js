@@ -2,6 +2,8 @@
 
 const ipc = window.ipc = require('electron').ipcRenderer;
 
+
+const randomstring = window.randomstring = require( "randomstring" )
 const YAML = window.YAML = require("yaml")
 const get = require("lodash/get")
 const set = require("lodash/set")
@@ -15,7 +17,6 @@ const mkdirp = window.mkdirp = require("mkdirp");
 const jsonfile = window.jsonfile = require("jsonfile");
 const { ActionManager } = require(path.resolve(process.cwd(), "scripts/action.js"))
 const { remote } = require('electron')
-const randomstring = require("randomstring");
 const windowManager = remote.require('electron-window-manager');
 const current_window = window.current_window = remote.getCurrentWindow()
 

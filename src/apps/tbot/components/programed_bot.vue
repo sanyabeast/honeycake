@@ -43,7 +43,7 @@ export default Vue.extend({
           },
           reply_timeout: {
             type: Number,
-            default () { return 999 }
+            default () { return 333 }
           }
         },
         data () {
@@ -193,8 +193,6 @@ export default Vue.extend({
                 } )
               }
             }
-
-            console.log( config, $config )
             return $config.bind( this )
           },
         }

@@ -6,9 +6,11 @@ import isFunction from "lodash/isFunction"
 import isUndefined from "lodash/isUndefined"
 import isNumber from "lodash/isNumber"
 import isObject from "lodash/isObject"
+import isArray from "lodash/isArray"
 import get from "lodash/get"
 import set from "lodash/set"
 import unset from "lodash/unset"
+import chunk from "lodash/chunk"
 
 class SmartValues {
     constructor () {
@@ -17,7 +19,7 @@ class SmartValues {
                 test: "@reply",
                 factory: ( config ) => function ( ctx ) { 
                     this.log("reply/text")
-                    this.send_text( ctx.from.id, this.apply_template( ctx, config.arg ) )
+                    this.send_text( ctx.from.id, this.apply_template( config.arg, ctx ) )
                 }
             },
             {
@@ -31,28 +33,28 @@ class SmartValues {
                 test: "@scene:",
                 factory: ( config ) => function ( ctx ) { 
                     this.log("entering scene...")
-                    ctx.scene.enter( this.apply_template( ctx, config.arg ) )
+                    ctx.scene.enter( this.apply_template( config.arg, ctx ) )
                 }
             },
             {
                 test: "(@help:|@help)",
                 factory: ( config ) => function ( ctx ) { 
                     this.log("reply/html")
-                    this.send_text( ctx.from.id, this.apply_template( ctx, config.arg ) )
+                    this.send_text( ctx.from.id, this.apply_template( config.arg, ctx ) )
                 }
             },
             {
                 test: "(@answer:|@answer)",
                 factory: ( config ) => function ( ctx ) { 
                     this.log(`answer/cb-query/text (${ctx.match[0]})`)
-                    ctx.answerCbQuery( this.apply_template( ctx, config.arg ) )
+                    ctx.answerCbQuery( this.apply_template( config.arg, ctx ) )
                 }
             },
             {
                 test: "(@log:|@log)",
                 factory: ( config ) => function ( ctx ) { 
                     this.log(`debug/log`)
-                    this.log( `@log: ${ this.apply_template( ctx, config.arg ) }`, "recieved" )
+                    this.log( `@log: ${ this.apply_template( config.arg, ctx ) }`, "recieved" )
                 }
             },
             {
@@ -103,13 +105,13 @@ class SmartValues {
                         if ( kb_config ) {
                             button_data = merge( this.eval( kb_config, ctx ), button_data )
                         }
-
                         
                         let inline_keyboard = this.create_inline_keyboard( button_data )
-                        this.send_text( ctx.from.id, this.apply_template( ctx, text ), inline_keyboard.extra() )
+                        this.send_text( ctx.from.id, this.apply_template( text, ctx ), inline_keyboard.extra() )
                     }
                 }
             },
+            /*branch*/
             {
                 test: ( data ) => isObject( data ) && isString( data.branch ),
                 factory ( config ) {
@@ -140,6 +142,64 @@ class SmartValues {
                         } )
                     }
                 }  
+            },
+            {
+                test: ( data ) => isObject( data ) && data.$type === "dialog_scene",
+                factory ( config ) {
+                    let params = config.arg
+                    let text = params.text ? params.text : "..." 
+                    let retval = {
+                        id: params.id,
+                        events: [],
+                        actions: [],
+                        commands: [],
+                        hears: []
+                    }
+
+                    let buttons_data = []
+                    let enter_cb = []
+
+                    if ( params.enter ) {
+                        if ( isArray( params.enter ) ) {
+                            enter_cb = params.enter
+                        } else {
+                            enter_cb.push( params.enter )
+                        }
+                    }
+
+                    if ( params.pins ) {
+                        forEach( params.pins, ( callback_data, button_caption )=>{
+                            console.log(button_caption)
+                            buttons_data.push( button_caption )
+                            retval.actions.push({
+                                text: button_caption,
+                                cb: callback_data
+                            })
+                        } )
+                    } 
+
+                    if ( params.show_exit ) {
+                        buttons_data.push( "↩️ Выход" )
+                        retval.actions.push({
+                            text: "↩️ Выход",
+                            cb: "@scene:default"
+                        })
+                    }
+
+                    if ( buttons_data.length > 0 ) {
+                        if ( isNumber( params.columns ) ) buttons_data = chunk( buttons_data, params.columns )
+                        enter_cb.push( `@inline-keyboard: $caption=${ text }; $config=${ JSON.stringify( buttons_data ) }` )
+                    } else {
+                        enter_cb.push( `@reply:${ text }` )
+                    }
+
+                    retval.events.push({
+                        id: "enter",
+                        cb: enter_cb
+                    })
+                    
+                    return retval
+                } 
             }
         ]
     }

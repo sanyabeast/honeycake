@@ -13,6 +13,7 @@
 
 <script lang="js">
 
+import EvalWizard from "apps/default/lib/evalwizard"
 import program_wrapper from "apps/tbot/components/program_wrapper"
 import Vue from "vue"
 import transform from "lodash/transform"
@@ -34,6 +35,7 @@ import toPairs from "lodash/toPairs"
 import keys from "lodash/keys"
 import values from "lodash/toPairs"
 
+
 let lodash_map = map
 let lodash_find = find
 let lodash_merge = merge
@@ -50,6 +52,19 @@ export default Vue.extend({
   props: ["BOT_API_TOKEN", "commands_prop", "database_file"],
   data () {
     return {
+      evalwizard_vars: {
+        ctx: null,
+        map,
+        find,
+        merge,
+        chunk,
+        to_pairs: toPairs,
+        keys,
+        values,
+        log: ( d )=> console.log( 'eval log', d ),
+        set_temp: ( p, v )=> this.set_temp( p, v ),
+        get_temp: ( p )=> this.get_temp( p )
+      },
       extra_commands: [
         "help",
         "me",
@@ -59,6 +74,10 @@ export default Vue.extend({
       auto_launch: true,
       state: {
         log: []
+      },
+      ctx_mock: {
+        from: {},
+        message: { text: "mock" }
       }
     }
   },
@@ -66,6 +85,25 @@ export default Vue.extend({
   computed: {},
   mounted () {
     window.bot = this
+    this.evalwizard = window.evalwizard = new EvalWizard( {
+      context: this,
+      intermediate_code: `
+        this.log("telegraf bot...");
+
+        let timestamp = "t_" + (new Date()).toString()
+        let msg = ctx.message;
+        let from = ctx.from;
+        let userdata = ()=> this.get_user_data( ctx );
+        let match = ctx.match ? ctx.match.input : ""
+        let get_fullname = ()=>{ return this.get_full_contact_name( ctx.from ) };
+        let set = ( p, v ) => { return this.set_user_value( ctx, p, v ) };
+        let unset = ( p, v ) => { return this.unset_user_value( ctx, p ) };
+        let get = ( p, v ) => { return this.get_user_value( ctx, p ) };
+        let reply = ( message, extra )=> { this.send_text( ctx.from.id, message, extra ) }
+      `
+    } )
+
+    
     this.read_temp()
     let bot = this.bot = new Telegraf(this.BOT_API_TOKEN)
 
@@ -73,87 +111,6 @@ export default Vue.extend({
       this.log(`saving datatabase file (${this.database_file})`, "system")
       action_manager.write_json( this.database_file, this.database_object )
     }, 2000)
-    
-    /*test*/
-
-    // bot.on('inline_query', async ({ inlineQuery, answerInlineQuery }) => {
-    //   const apiUrl = `http://recipepuppy.com/api/?q=${inlineQuery.query}`
-    //   const response = await fetch(apiUrl)
-    //   const { results } = await response.json()
-    //   const recipes = results
-    //     .filter(({ thumbnail }) => thumbnail)
-    //     .map(({ title, href, thumbnail }) => ({
-    //       type: 'article',
-    //       id: thumbnail,
-    //       title: title,
-    //       description: title,
-    //       thumb_url: thumbnail,
-    //       input_message_content: {
-    //         message_text: title
-    //       },
-    //       reply_markup: Markup.this.create_inline_keyboard([
-    //         Markup.urlButton('Go to recipe', href)
-    //       ])
-    //     }))
-    //   return answerInlineQuery(recipes)
-    // })
-
-    // bot.on('chosen_inline_result', ({ chosenInlineResult }) => {
-    // })
-
-    // bot.command('pyramid', (ctx) => {
-    //   let extra = Telegraf.Extra.HTML()
-     
-    //   return ctx.reply('<b>Keyboard</b> <i>wrap</i>', extra )
-    // })
-
-    // bot.command('simple', (ctx) => {
-    //   return ctx.replyWithHTML('<b>Coke</b> or <i>Pepsi?</i>')
-    // })
-
-    // bot.command('inline', (ctx) => {
-    //   return ctx.reply('<b>Coke</b> or <i>Pepsi?</i>', Telegraf.Extra.HTML().markup((m) => {
-    //     m.this.create_inline_keyboard([
-    //       m.callbackButton('Coke', 'lol'),
-    //       m.callbackButton('Pepsi', 'kek'),
-    //     ])
-
-
-    //     return m
-    //   }))
-    // })
-
-    // bot.command('random', (ctx) => {
-    //   let extra = Telegraf.Markup.Extra.inlineKeyboard([
-    //     Telegraf.Markup.callbackButton('Coke', 'lol'),
-    //     Telegraf.Markup.callbackButton('Pepsi', 'kek'),
-    //   ]).extra();
-
-      
-    //   return ctx.reply('<b>Coke</b> or <i>Pepsi?</i>', extra)
-    // })
-
-    // bot.command('caption', (ctx) => {
-    //   return ctx.replyWithPhoto({ url: 'https://picsum.photos/200/300/?random' },
-    //     Telegraf.Extra.load({ caption: 'Caption' })
-    //       .markdown()
-    //       .markup((m) => {
-    //         m.this.create_inline_keyboard([
-    //           m.callbackButton('Plain', 'plain'),
-    //           m.callbackButton('Italic', 'italic'),
-    //           m.callbackButton('Italic', 'italic'),
-    //           m.callbackButton('Italic', 'italic'),
-    //           m.callbackButton('Italic', 'italic'),
-    //           m.callbackButton('Italic', 'italic')
-
-    //         ])
-    //         return m;
-
-
-    //       }
-    //       )
-    //   )
-    // })
 
     /*!test*/
     this.log("init commands...", "system");
@@ -169,6 +126,12 @@ export default Vue.extend({
   },
   destroyed () {},
   methods: {
+    apply_template ( string, ctx ) {
+        return this.eval( "`" + string + "`", ctx )
+    },
+    eval ( post_code, ctx ) {
+      return this.evalwizard.eval( post_code, set( this.evalwizard_vars, "ctx", ctx ) )
+    },
     get_users_list () {
       let users_list = this.get_temp("users") || {};
       return users_list;
@@ -181,10 +144,10 @@ export default Vue.extend({
 
       forEach(ulist, ( user_data )=>{
 
-        this.send_text( user_data.id, this.apply_template( {
+        this.send_text( user_data.id, this.apply_template( message, {
           from: user_data,
           message: {}
-        }, message ) )
+        } ) )
       })
     },
     get_user_data ( telegraf_ctx ) {
@@ -424,76 +387,10 @@ export default Vue.extend({
       let args = [...arguments]
       return args[Math.floor(Math.random() * args.length)]
     },
-    apply_template ( telegraf_ctx, string ) {
-      let result = this.eval(`
-        \`${ string }\`;
-      `, telegraf_ctx)
-
-      console.log(113, result)
-
-      return result  
-
-    },
-
-    eval ( post_code, telegraf_ctx ) {
-      let result
-      let code = `
-        let timestamp = "t_" + (new Date()).toString()
-        let data = this.scenario_data.data || {}
-        let msg = telegraf_ctx.message;
-        let emoji = this.emoji_list;
-        let msg_type;
-        let map = lodash_map;
-        let find = lodash_find;
-        let chunk = lodash_chunk;
-        let merge = lodash_merge;
-        let to_pairs = lodash_toPairs;
-        let keys = lodash_keys;
-        let values = lodash_values;
-        let match = telegraf_ctx.match ? telegraf_ctx.match.input : ""
-        let get_fullname = ()=>{ return this.get_full_contact_name( telegraf_ctx.from ) };
-        let set = ( p, v ) => { return this.set_user_value( telegraf_ctx, p, v ) };
-        let unset = ( p, v ) => { return this.unset_user_value( telegraf_ctx, p ) };
-        let get = ( p, v ) => { return this.get_user_value( telegraf_ctx, p ) };
-        let reply = ( message, extra )=> { this.send_text( telegraf_ctx.from.id, message, extra ) }
-        let log = ( d )=> console.log( 'eval log', d );
-
-        if (msg) {
-          msg_type = ( msg.sticker !== undefined ? "sticker" : "default");
-        }
-        
-        let userdata = function(){  
-          if ( arguments.length > 0 ) {
-
-          } else {
-            return this.get_user_data( telegraf_ctx );
-          }
-        }.bind(this);
-        let set_temp = (p, v)=> this.set_temp(p, v);
-        let get_temp = (p)=> this.get_temp(p);
-        let rand = this.random_from_args.bind(this.get_short_message)
-        
-        let from = telegraf_ctx.from;
-
-        ${post_code}
-      `
-
-
-      result = eval(code)
-      
-      // try {
-      // } catch ( err ) {
-      //   console.error("Evaluating property failed: ", err);
-      // }
-
-      return result
-    },
+   
     /*markup*/
     create_inline_keyboard ( data ) {
       let kb_data = []
-
-      console.log(data)
-
       if ( isArray( data ) ) {
         forEach(data, ( item_data, item_id )=>{
           if ( isArray( item_data ) ) {
