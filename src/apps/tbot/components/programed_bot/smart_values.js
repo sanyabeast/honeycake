@@ -90,29 +90,45 @@ class SmartValues {
                     let button_data = {}
                     let text = "..."
                     let kb_config = null
+                    let photo = null
 
                     forEach( tokens, ( token, index )=>{
+                        if ( token.trim().split("=")[0] === "$photo" ){
+                            photo = token.trim().split(/=(.+)/sgm)[1]
+                            return
+                        }
+
                         if ( token.trim().split("=")[0] === "$caption" ){
-                        text = token.trim().split(/=(.+)/sgm)[1]
-                        return
+                            text = token.trim().split(/=(.+)/sgm)[1]
+                            return
                         }
 
                         if ( token.trim().split("=")[0] === "$config" ){
                             kb_config = token.trim().split(/=(.+)/sgm)[1]
-                        return
+                            return
                         }
 
-
-                        button_data[ token.trim().split("=")[0] ] = token.trim().split("=")[0]
                     } )
 
                     return function ( ctx ) {
+                        let result_text = this.apply_template( text, ctx );
 
                         if ( kb_config ) {
                         }
-                        
+
+            
                         let inline_keyboard = this.create_inline_keyboard( merge( this.eval( kb_config, ctx ), button_data ) )
-                        this.send_text( ctx.from.id, this.apply_template( text, ctx ), inline_keyboard.extra() )
+                        
+                        if ( photo !== null ) {
+                            let extra = inline_keyboard.extra()
+                            extra.caption = result_text
+                            this.send_photo( ctx.from.id, {
+                                url: this.apply_template(photo, ctx)
+                            }, extra )
+                        } else {
+                            this.send_text( ctx.from.id, result_text, inline_keyboard.extra() )
+                        }
+
                     }
                 }
             },

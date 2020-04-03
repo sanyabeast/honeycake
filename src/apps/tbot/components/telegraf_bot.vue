@@ -315,11 +315,12 @@ export default Vue.extend({
       if ( text.length === 0 ) text = "...";
       this.bot.telegram.sendMessage( chat_id, text, extra || Telegraf.Extra.HTML() )
     },
-    send_photo ( chat_id, image_data ) {
+    send_photo ( chat_id, image_data, extra ) {
       this.log(`sending image to ${ chat_id } - "${image_data.url}"`, "sending")
+      if ( extra ) extra.parse_mode = "HTML"
       this.bot.telegram.sendPhoto( chat_id, {
         source: image_data.url,
-      }, { caption: image_data.caption || undefined } )
+      }, extra )
     },
     send_mediagroup ( chat_id, media ) {
       let media_group = transform(media, (result, value, key)=>{
