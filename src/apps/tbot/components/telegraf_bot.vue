@@ -123,6 +123,14 @@ export default Vue.extend({
     
     this.read_temp()
     let bot = this.bot = new Telegraf(this.BOT_API_TOKEN)
+    bot.catch((err, ctx)=>{
+      console.log(err, ctx)
+    })
+
+    bot.on('inline_query', (ctx) => {
+      console.log("inline_query", ctx)
+    })
+
 
     this.save_temp = debounce(()=>{
       this.log(`saving datatabase file (${this.database_file})`, "system")
@@ -261,18 +269,24 @@ export default Vue.extend({
     launch () {
       this.init_events()
       setTimeout(()=>{
+        // let fu = Telegraf.prototype.fetchUpdates
+        // Telegraf.prototype.fetchUpdates = function() {
+        //   console.log(arguments)
+        //   return fu.apply(this, arguments)
+        // }
         this.bot.launch()
       }, 1000)
     },
     stop () {
       this.bot.stop()
     },
-    log ( text_message, type ) {
+    log ( text_message, type ) { 
       this.$refs.logger.log(text_message, type)
     },
     /**callbacks */
-    on_message ( telegraf_ctx ) {
-      let message_type = this.get_message_type( telegraf_ctx );
+    on_message ( telegraf_ctx ) { 
+      console.log(1)
+      let message_type = this.get_message_type( telegraf_ctx ); 
       this.log(`recieved message from ${this.get_full_contact_name(telegraf_ctx.from)} - "${ this.get_short_message(telegraf_ctx.message.text, 16) }"`, "recieved")
       this.resolve_user_data( telegraf_ctx )
       
