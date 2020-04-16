@@ -61,7 +61,7 @@ export default Vue.extend({
               date: +new Date()
             })
 
-            this.state.log = this.state.log.slice(Math.max(this.state.log.length - 100, 0), this.state.log.length)
+            this.state.log = this.state.log.slice(Math.max(this.state.log.length - 25, 0), this.state.log.length)
             this.scroll_down()
 
           },

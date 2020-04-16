@@ -62,7 +62,9 @@ export default {
                 }
         },
         mounted () {
-
+                setInterval(() => {
+                        remote.getCurrentWindow().reload() 
+                }, 1000 * 60 * 30);
         },
         methods: {
                 
@@ -85,8 +87,8 @@ export default {
                         background: #1b1b1b;
                         width: 100%;
                         display: grid;
-                        grid-template-rows: 1fr 1fr;
-                        grid-template-columns: 1fr 1fr;
+                        grid-template-rows: 1fr 1fr 1fr 1fr 1fr 1fr;
+                        grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr;
                         grid-gap: 16px;
                         
                         > .repostbot_wrapper {

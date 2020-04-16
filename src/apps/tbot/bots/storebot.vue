@@ -10,6 +10,8 @@
       :scenario="bot_config.scenario"
       :database_file="bot_config.database_file"
       :BOT_API_TOKEN="bot_config.bot_api_token"
+      :default_scene="bot_config.default_scene"
+      :support_users="673037492"
     />
 </program_wrapper>
 

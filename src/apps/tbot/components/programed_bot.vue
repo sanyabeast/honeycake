@@ -37,13 +37,14 @@ import set from "lodash/set"
 import get from "lodash/get"
 import unset from "lodash/unset"
 import isString from "lodash/isString"
-import isArray from "lodash/isArray"
+import isArray from "lodash/isArray" 
 import isUndefined from "lodash/isUndefined"
 import isNull from "lodash/isNull"
 import isObject from "lodash/isObject"
 import merge from "lodash/merge"
 import chunk from "lodash/chunk"
 import isFunction from "lodash/isFunction"
+import dateformat from "dateformat"
 
 export default Vue.extend({
         name: "programed_bot",
@@ -56,7 +57,7 @@ export default Vue.extend({
           },
           reply_timeout: {
             type: Number,
-            default () { return 200 }
+            default () { return 500 }
           }
         },
         data () {
@@ -135,6 +136,8 @@ export default Vue.extend({
           build_scene ( bot, scene_data ) {
             let scene = new Telegraf.BaseScene( scene_data.id )
 
+           
+
             let commands = this.build_commands( scene, scene_data.commands )
             let events = this.build_events( scene, scene_data.events )
             let hear_data = this.build_hears( scene, scene_data.hears )
@@ -203,13 +206,21 @@ export default Vue.extend({
                   // callback( ctx )
                   setTimeout( ()=>{
                     callback( ctx )
+
                   }, index * this.reply_timeout )
+
+                  this.set_user_value( ctx, "last_seen.timestamp", +new Date() )
+                  this.set_user_value( ctx, "last_seen.readable", dateformat(new Date(), "d mmmm yyyy, h:MM:ss"))
                 } )
               }
             }
 
             if ( isFunction( $config ) ) {
-              return $config.bind(this)
+              return ( ctx )=>{
+                  $config.call( this, ctx )
+                  this.set_user_value( ctx, "last_seen.timestamp", +new Date() )
+                  this.set_user_value( ctx, "last_seen.readable", dateformat(new Date(), "d mmmm yyyy, h:MM:ss"))
+              }
             } else {
               console.log(new Error('unable to build callback'), config)
               return ()=>{}

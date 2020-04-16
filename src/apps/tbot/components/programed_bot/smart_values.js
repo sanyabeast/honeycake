@@ -15,6 +15,7 @@ import chunk from "lodash/chunk"
 class SmartValues {
     constructor () {
         this.tokens = [
+            
             {
                 test: "@reply",
                 factory: ( config ) => function ( ctx ) { 
@@ -34,6 +35,14 @@ class SmartValues {
                 factory: ( config ) => function ( ctx ) { 
                     this.log("entering scene...")
                     ctx.scene.enter( this.apply_template( config.arg, ctx ) )
+                }
+            },
+            {
+                test: "@default_scene",
+                factory: ( config ) => function ( ctx ) { 
+                    this.log("entering scene...")
+                    console.log( this.default_scene || "default" )
+                    ctx.scene.enter(  this.default_scene || "default"  )
                 }
             },
             {

@@ -45,6 +45,7 @@ import toPairs from "lodash/toPairs"
 import keys from "lodash/keys"
 import values from "lodash/values"
 import sum from "lodash/sumBy"
+import dateformat from "dateformat"
 
 
 let lodash_map = map
@@ -60,7 +61,7 @@ export default Vue.extend({
   name: "bot",
   mixins: [],
   components: { Logger, ProgramWrapper },
-  props: ["BOT_API_TOKEN", "commands_prop", "database_file"],
+  props: ["BOT_API_TOKEN", "commands_prop", "database_file", "default_scene", "support_users"],
   data () {
     return {
       evalwizard_vars: {
@@ -80,7 +81,13 @@ export default Vue.extend({
         only_letters: ( string )=> string.match(/[a-zA-Zа-яА-Я\s]+/gm)[0] || "...",
         only_number: ( string )=> string.match(/\d+(\.|)+(\d+|)/)[0] || 0,
         split: ( string, sep, index )=> string.split(sep)[index],
-        num: ( val ) => Number( val )
+        num: ( val ) => Number( val ),
+        dateformat: ( format_string )=>{
+          if ( !isString(format_string) || (isString(format_string) && format_string.length === 0) ) format_string = "d mmmm yyyy, h:MM:ss"
+          console.log(format_string)
+          return dateformat( new Date(), format_string )
+        },
+        default_scene: "default"
       },
       extra_commands: [
         "help",
@@ -101,6 +108,7 @@ export default Vue.extend({
   watch: {},
   computed: {},
   mounted () {
+    this.evalwizard_vars.default_scene = this.default_scene || "default"
     window.bot = this
     this.evalwizard = window.evalwizard = new EvalWizard( {
       context: this,
@@ -110,13 +118,15 @@ export default Vue.extend({
         let timestamp = "t_" + (+new Date()).toString()
         let msg = ctx.message;
         let from = ctx.from;
-        let userdata = ()=> this.get_user_data( ctx );
+        let userdata = ()=>this.get_user_data( ctx );
         let match = ctx.match ? ctx.match.input : ""
         let get_fullname = ()=>{ return this.get_full_contact_name( ctx.from ) };
         let set = ( p, v ) => { return this.set_user_value( ctx, p, v ) };
         let unset = ( p, v ) => { return this.unset_user_value( ctx, p ) };
         let get = ( p, v ) => { return this.get_user_value( ctx, p ) };
         let reply = ( message, extra )=> { this.send_text( ctx.from.id, message, extra ) }
+        let support = ( message ) => this.send_support_message( message, ctx.from.username || ctx.from.id )
+        let contains = ( array, value )=>{ return array.indexOf( value ) > -1 }
       `
     } )
 
@@ -130,7 +140,6 @@ export default Vue.extend({
     bot.on('inline_query', (ctx) => {
       console.log("inline_query", ctx)
     })
-
 
     this.save_temp = debounce(()=>{
       this.log(`saving datatabase file (${this.database_file})`, "system")
@@ -151,6 +160,13 @@ export default Vue.extend({
   },
   destroyed () {},
   methods: {
+    send_support_message( message, username ) {
+      if ( this.support_users ) {
+        this.send_text( this.support_users, `<b>Support Message from ${username}</b>:\n<i>${message}</i>` )
+      } else {
+        console.log("no support users")
+      }
+    },
     apply_template ( string, ctx ) {
         return this.eval( "`" + string + "`", ctx )
     },
@@ -185,6 +201,9 @@ export default Vue.extend({
         if ( !loaded_user_data ) {
           loaded_user_data = this.resolve_user_data( telegraf_ctx )
         }
+
+        
+
         return loaded_user_data
     },  
     get_user_value ( telegraf_ctx, prop_path ) {
@@ -211,21 +230,25 @@ export default Vue.extend({
       return telegraf_ctx.from.username || telegraf_ctx.from.id
     },
     resolve_user_data ( telegraf_ctx ) {
+      let user_data = null
       if ( this.get_temp( `users.id_${ telegraf_ctx.from.id }` ) ) {
-        return this.get_temp( `users.id_${ telegraf_ctx.from.id }` )
-      }
+        user_data = this.get_temp( `users.id_${ telegraf_ctx.from.id }` )
+      } else {
+        user_data = {
+          id: telegraf_ctx.from.id,
+          is_bot: telegraf_ctx.from.is_bot,
+          first_name: telegraf_ctx.from.first_name,
+          last_name: telegraf_ctx.from.last_name,
+          username: telegraf_ctx.from.username,
+          language_code: telegraf_ctx.from.language_code,
+          created_by: telegraf_ctx.me
+        }
 
-      let user_data = {
-        id: telegraf_ctx.from.id,
-        is_bot: telegraf_ctx.from.is_bot,
-        first_name: telegraf_ctx.from.first_name,
-        last_name: telegraf_ctx.from.last_name,
-        username: telegraf_ctx.from.username,
-        language_code: telegraf_ctx.from.language_code,
+        this.log("creating user data...", "user_data")
+        this.set_temp( `users.id_${telegraf_ctx.from.id}`, user_data )
       }
-
-      this.log("creating user data...", "user_data")
-      this.set_temp( `users.id_${telegraf_ctx.from.id}`, user_data )
+      
+      
       return user_data
     } , 
     save_temp () {
@@ -414,7 +437,10 @@ export default Vue.extend({
       let args = [...arguments]
       return args[Math.floor(Math.random() * args.length)]
     },
-   
+    dateformat () {
+      return dateformat.apply(null, arguments)
+    },
+
     /*markup*/
     create_inline_keyboard ( data ) {
       let kb_data = []
